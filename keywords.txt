@@ -1,0 +1,32 @@
+// Class, should be orange
+Systronix_PCAL9535A	KEYWORD1
+
+// Functions, should be brown
+begin	KEYWORD2
+writeRegPair	KEYWORD2
+writeRegister	KEYWORD2
+readRegister	KEYWORD2
+
+// Variables
+BaseAddr	KEYWORD0
+
+// Manifest Constants
+IN_PORT_0_REG	LITERAL1
+IN_PORT_1_REG	LITERAL1
+OUT_PORT_0_REG	LITERAL1
+OUT_PORT_1_REG	LITERAL1
+POL_INV_PORT_0_REG	LITERAL1
+POL_INV_PORT_1_REG	LITERAL1
+CONFIG_PORT_0_REG	CONFIG_PORT_0_REG
+CONFIG_PORT_1_REG	CONFIG_PORT_0_REG
+
+// Test of all highlighting values - KEYWORD7 causes IDE problems! Don't use it.
+AKW0	KEYWORD0	// bold gray
+AKW1	KEYWORD1	// orange
+AKW2	KEYWORD2	// brown?
+AKW3	KEYWORD3	// bold orange
+AKW4	KEYWORD4	// no effect
+AKW5	KEYWORD5	// blue underline as hyperlink
+AKW6	KEYWORD6	// bold gray
+ALIT1	LITERAL1	// blue?
+ALIT2	LITERAL2	// not used?
