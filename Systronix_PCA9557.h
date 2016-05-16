@@ -2,12 +2,11 @@
  PCA9557.h, based on started PCAL9535A library
  Revisions
  
+ 2016 May 15 bboyes Conditional comp use of i2c_t3
  2016 May 09 bboyes changing SALT1 bit mapping to reflect actual SALT 1v00 board layout
  2015 Apr 22 bboyes start, based on incomplete PCAL9535A library as used on ARV2
  
  */
- 
-
  
 
 // what does this do??
@@ -15,6 +14,12 @@
 #define PCA9557_H_
 
 #include<Arduino.h>
+
+#if defined (__MK20DX256__) || defined (__MK20DX128__) 	// Teensy 3.1 or 3.2 || Teensy 3.0
+#include <i2c_t3.h>		
+#else
+#include <Wire.h>	// for AVR I2C library
+#endif
 
 /*--------------------------- COMMAND REGISTER ----------------*/
 

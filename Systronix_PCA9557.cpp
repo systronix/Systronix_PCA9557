@@ -53,7 +53,6 @@ Compiler has major whines if called as shown in the online Wire reference.
 
 #include <Arduino.h>
 #include "Systronix_PCA9557.h"
-#include "Wire.h"
 
  byte _DEBUG = 1;
 
