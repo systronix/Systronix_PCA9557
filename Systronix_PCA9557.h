@@ -68,31 +68,23 @@ class Systronix_PCA9557
 		 * Here are bit masks for the bits written to _out_data
 		 * We want these private because the caller should not
 		 * be manipulating these directly but using access methods instead
-		 * There is an error in SALT 1v00 in schematic bit assignment at the '9557
-		 * and at the J28 connector.
 		 */
-		// These are what we intended the bits to be. Only IO 6 and 4 are correct
-		// const uint8_t _RCLK595 = 0x80;	// only used by '595, must idle high
-		// const uint8_t _SCLK = 0x40;		// serial clock, used by both 595 and 165
-		// const uint8_t _SDOUT = 0x20;	// output from 9577 to '595 Din
-		// const uint8_t _SDIN = 0x10;		// input to 9577 from '165 Qout
-		// const uint8_t _SHIFT165 = 0x08;	// SHIFT(H), LOAD(L) only used by '165
-		
-		// In SALT1 this is how the 9557 output bits actually map to AC and DC board signals
-		const uint8_t _SHIFT165 = 0x80;	// SHIFT(H), LOAD(L) only used by '165	
-		const uint8_t _SCLK = 0x40;		// serial clock, used by both 595 and 165
-		const uint8_t _RCLK595 = 0x20;	// only used by '595, must idle high		
-		const uint8_t _SDIN = 0x10;		// input to 9577 from '165 Qout
-		const uint8_t _SDOUT = 0x08;	// output from 9577 to '595 Din		
+		// In SALT2 this is how the 9557 output bits actually map to AC and DC board signals
 
-		const uint8_t _LED = 0x01;		// open drain, clearing this bit drives output low. LED on
+		const uint8_t _RCLK595 = 0x80;	// only used by '595, must idle high
+		const uint8_t _SCLK = 0x40;		// serial clock, used by both 595 and 165
+		const uint8_t _SDOUT = 0x20;	// output from 9577 to '595 Din
+		const uint8_t _SDIN = 0x10;		// input to 9577 from '165 Qout
+		const uint8_t _SHIFT165 = 0x08;	// SHIFT(H), LOAD(L) only used by '165
+		// bits 1 and 2 (0x02, 0x04) not connected
+		const uint8_t _LED = 0x01;		// open drain, clearing this bit drives output low = LED on
 
 		// bit 5 is input; bits 2 and 1 are not connected, Bit 0 is the activity LED for that device
 		// so this mask has a '1' for every bit which is used as output
 		const uint8_t _OUTMASK = _RCLK595|_SCLK|_SDOUT|_SHIFT165|_LED;	
 
 		/*
-		 * This is data coming back from '165 shift registers
+		 * This is a byte of data coming back from '165 shift registers
 		 */
 		uint8_t _inp_data;
 

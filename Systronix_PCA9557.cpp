@@ -85,27 +85,55 @@ void Systronix_PCA9557::begin(void) {
 	Wire.begin();	// join I2C as master
 
 	// clear pin dir reg bits to 0 for all outputs
+	// datasheet calls this config register
+	// 0 bit = that bit is output
 	register_write(PCA9557_PIN_DIR_REG, ~_OUTMASK);
 
 	// don't invert any inputs
 	register_write(PCA9557_INP_INVERT_REG, 0x00);
 
 	// init outputs to all zero
-	register_write(PCA9557_OUT_PORT_REG, 0x00);
+	register_write(PCA9557_OUT_PORT_REG, _out_data);
 }
 
 
 
 /*
- * Write data to the control register
- *
- * returns # of bytes written which should be 1, 2 if error?
+	Write to the control register. This is the register accessed
+	after the 9557 receives a valid slave address and ACKs it.
+	The next data written by the master sets the 2 LSBs in the control register.
+	Note that the control register itself does not have a "register address".
+	It can also be written, but how?	
+	
+	Only 2 lsbs matter: they act as address to four device I/O registers:
+	00 read only input port register (writes have no effect)
+		??? Are writes ACKed?
+		read the value on the actual device pin
+	01 read/write output port register 
+		write to output reg F/F, not the actual pins
+		config reg bit must also be cleared to let that F/F drive its pin
+		(if all I/O are inputs this is just an 8-bit storage register)
+		Note that bit 0 (only) is open-drain.
+		POR state: all bits cleared
+	10 read/write polarity inversion register 
+		set bit = that pin's input value is inverted when read
+		POR state: bits 7..4 are set, bits 3..0 are cleared.
+	11 read/write configuration register 
+		low bit = that pin is output pin. 
+		That bit's output F/F out is actually driven to that pin.
+		POR state = all bits set (all are inputs)
+	
+	All this method does is set those register address bits 
+	in the control register. It does not then write to or 
+	read from the register which is now addressed.
+
+	returns # of bytes written which should be 1, 2 if error?
  */
 uint8_t Systronix_PCA9557::control_write (uint8_t data)
 {
 	uint8_t b = 0;
 	  Wire.beginTransmission(_base);
-	  // write data to control register only 2 lsbs matter
+
 	  // returns # of bytes written
 	  b = Wire.write(data);
 	  // returns 0 if no error
@@ -167,7 +195,7 @@ uint8_t Systronix_PCA9557::default_read ()
  *
  * All Core board DB15s first go to a DC board, then optionally to an AC board.
  *
- *
+ * TODO THESE ARE WRONG FOR SALT2
  * bit 7 shift(H) / load(L) to DC board '165 pin 1, S(H)/LD(L)
  * bit 6 serial clock (sclk) to '595 pin 11, NXP SHCP, L->H clocks data into shift reg
  * bit 5 register clock rclk to '595 pin 12, NXP STCP, L->H transfers data to output regs
