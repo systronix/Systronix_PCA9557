@@ -152,16 +152,17 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 uint8_t Systronix_PCA9557::register_write (uint8_t reg, uint8_t data)
 {
 	uint8_t b = 0;
-	  Wire.beginTransmission(_base);
-	  // write data to control register only 2 lsbs matter
-	  // returns # of bytes written
-	  b = Wire.write(reg);
-	  b+= Wire.write(data);
+	
+	Wire.beginTransmission(_base);
+	// write data to control register only 2 lsbs matter
+	// returns # of bytes written
+	b = Wire.write(reg);
+	b+= Wire.write(data);
 
-	  // returns 0 if no error
-	  b+= Wire.endTransmission();
+	// returns 0 if no error
+	b+= Wire.endTransmission();
 
-	 return b;
+	return b;
 }
 
 /**
@@ -214,6 +215,44 @@ uint8_t Systronix_PCA9557::default_read ()
  *
  */
 
+ /*
+ * Pulse pin(s) from idle state to active state and back to idle.
+ * Leave with pin(s) in idle state.
+ * Example: 
+ * pin_pulse (0xFF, true) will pulse ALL pins H-L-H; 
+ * 0x02 will pulse output 1
+ *
+ * This only actually drives pins defined as outputs in the config register
+ *
+ * @param pin [0..0xFF] the device output pin(s) you want to pulse
+ * @param idle_high if true otherwise will idle low
+ */
+uint8_t Systronix_PCA9557::pins_pulse (uint8_t pin_mask, boolean idle_high)
+{
+	uint8_t b = 0;
+
+	if (idle_high)
+	{
+		_out_data &= (~pin_mask);	// clear outputs to be pulsed low
+	}
+	else
+	{
+		_out_data |= (pin_mask);	// set outputs to be pulsed	high	
+	}
+	register_write(PCA9557_OUT_PORT_REG, _out_data);
+
+	if (idle_high)
+	{
+		_out_data |= (pin_mask);	// set outputs to be idled high
+	}
+	else
+	{
+		_out_data &= (~pin_mask);	// clr outputs to be idles low		
+	}
+	register_write(PCA9557_OUT_PORT_REG, _out_data);
+	
+	return b;
+}
 
 /*
  * Assume clock is high when resting.

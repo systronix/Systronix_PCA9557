@@ -108,6 +108,7 @@ class Systronix_PCA9557
 		uint8_t default_read ();
 		uint8_t BaseAddr;    // I2C address, only the low 7 bits matter
 
+		uint8_t pins_pulse (uint8_t pin_mask, boolean idle_high);
 		uint8_t sclk_pulse ();	// make this private later??
 		uint8_t rclk_pulse ();
 		uint8_t shift_out_16bits (uint16_t data);
