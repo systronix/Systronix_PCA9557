@@ -15,6 +15,7 @@
 
 #include<Arduino.h>
 
+// Include the lowest level I2C library
 #if defined (__MK20DX256__) || defined (__MK20DX128__) 	// Teensy 3.1 or 3.2 || Teensy 3.0
 #include <i2c_t3.h>		
 #else
@@ -108,7 +109,7 @@ class Systronix_PCA9557
 		uint8_t default_read ();
 		uint8_t BaseAddr;    // I2C address, only the low 7 bits matter
 
-		uint8_t pins_pulse (uint8_t pin_mask, boolean idle_high);
+		uint8_t pin_pulse (uint8_t pin_mask, boolean idle_high);
 		uint8_t sclk_pulse ();	// make this private later??
 		uint8_t rclk_pulse ();
 		uint8_t shift_out_16bits (uint16_t data);

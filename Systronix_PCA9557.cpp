@@ -227,7 +227,7 @@ uint8_t Systronix_PCA9557::default_read ()
  * @param pin [0..0xFF] the device output pin(s) you want to pulse
  * @param idle_high if true otherwise will idle low
  */
-uint8_t Systronix_PCA9557::pins_pulse (uint8_t pin_mask, boolean idle_high)
+uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 {
 	uint8_t b = 0;
 
