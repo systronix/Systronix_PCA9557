@@ -6,6 +6,8 @@
  Based on Rev. 06 — 11 June 2008 of the NXP data sheet
  
  Revisions
+ 2016 May 20 bboyes major changes to take out application-specific features and
+					make this a generic library
  2015 Apr 22 bboyes start, based on incomplete PCAL9535A library as used on ARV2
 
 ***************************************************************************/
@@ -33,6 +35,10 @@ I guess reads are not a "Transmission".
 
 So to read three bytes, do a requestFrom(address, 2, true). << insists the first param is int.
 Compiler has major whines if called as shown in the online Wire reference.
+
+ NOTE: We are actually using i2c_t3 optimized for Teensy 3.x but should 
+ still work with Wire on Teensy or other Arduinos
+ 
 ***************************************************************************/
  
 /****************************************************************************
@@ -83,6 +89,10 @@ Systronix_PCA9557::Systronix_PCA9557(uint8_t base)
 void Systronix_PCA9557::begin(void) {
 	// 
 	Wire.begin();	// join I2C as master
+	
+	
+	// @TODO add default read first thing to see if it is the control reg
+	// but even if it is, is it any use? How would we know what to expect?
 
 	// clear pin dir reg bits to 0 for all outputs
 	// datasheet calls this config register
@@ -224,6 +234,11 @@ uint8_t Systronix_PCA9557::default_read ()
  *
  * This only actually drives pins defined as outputs in the config register
  *
+ * @TODO decide what to return and add support for it
+ * maybe return boolean true if all bits driven are actually output bits?
+ * AND pin_mask with ~config reg value, it should be equal to the pin mask
+ * return TRUE if mask are outputs and no I2C errors
+ *
  * @param pin [0..0xFF] the device output pin(s) you want to pulse
  * @param idle_high if true otherwise will idle low
  */
@@ -247,7 +262,7 @@ uint8_t Systronix_PCA9557::pins_pulse (uint8_t pin_mask, boolean idle_high)
 	}
 	else
 	{
-		_out_data &= (~pin_mask);	// clr outputs to be idles low		
+		_out_data &= (~pin_mask);	// clr outputs to be idled low		
 	}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 	
@@ -258,6 +273,8 @@ uint8_t Systronix_PCA9557::pins_pulse (uint8_t pin_mask, boolean idle_high)
  * Assume clock is high when resting.
  * Pulse the serial bit clock low then back high.
  * Leave with clock high.
+ *
+ * @deprecated, use pins_pulse instead
  */
 uint8_t Systronix_PCA9557::sclk_pulse ()
 {
@@ -279,6 +296,8 @@ uint8_t Systronix_PCA9557::sclk_pulse ()
  * Assume clock is high when resting.
  * Pulse the serial bit clock low then back high.
  * Leave with clock high.
+ *
+ * @deprecated, use pins_pulse instead
  */
 uint8_t Systronix_PCA9557::rclk_pulse ()
 {
@@ -299,6 +318,8 @@ uint8_t Systronix_PCA9557::rclk_pulse ()
 
 /*
  * Data is sent lsb first at least for now
+ *
+ * @TODO move this to SALT-specific library
  */
 uint8_t Systronix_PCA9557::shift_out_16bits (uint16_t data)
 {
@@ -318,19 +339,21 @@ uint8_t Systronix_PCA9557::shift_out_16bits (uint16_t data)
 			// clear the bit
 			_out_data &= (~_SDOUT);
 		}
-		sclk_pulse ();
+		sclk_pulse ();		// change to pins_pulse
 
 		// shift in next bit
 		bit = bit >> 1;
 	}
 
-	rclk_pulse();
+	rclk_pulse();	// change to pins_pulse
 	return b;
 }
 
 /*
  * Data is sent lsb first at least for now
  * Shift 32 bits through presumed DC and AC registers, then latch it.
+ *
+ * @TODO move this to SALT-specific library
  */
 uint8_t Systronix_PCA9557::shift_out_32bits (uint32_t data)
 {
@@ -350,13 +373,13 @@ uint8_t Systronix_PCA9557::shift_out_32bits (uint32_t data)
 			// clear the bit
 			_out_data &= (~_SDOUT);
 		}
-		sclk_pulse ();
+		sclk_pulse ();	// change to pins_pulse
 
 		// shift in next bit
 		bit = bit >> 1;
 	}
 
-	rclk_pulse();
+	rclk_pulse();	// change to pins_pulse
 	return b;
 }
 
