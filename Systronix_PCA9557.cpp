@@ -29,9 +29,6 @@
 
 Wire.endTransmission() seems to be only intended for use with a master write.
 Wire.requestFrom() is used to get bytes from a slave, with read().
-beginTransmission() followed by read() does not work. Slave address gets sent,
-then nothing else. As if the read commands get ignored.
-I guess reads are not a "Transmission".
 
 So to read three bytes, do a requestFrom(address, 2, true). << insists the first param is int.
 Compiler has major whines if called as shown in the online Wire reference.
@@ -60,7 +57,7 @@ Compiler has major whines if called as shown in the online Wire reference.
 #include <Arduino.h>
 #include "Systronix_PCA9557.h"
 
- byte _DEBUG = 1;
+#define _DEBUG 0
 
 /**************************************************************************/
 /*!
@@ -90,7 +87,6 @@ void Systronix_PCA9557::begin(void) {
 	// 
 	Wire.begin();	// join I2C as master
 	
-	
 	// @TODO add default read first thing to see if it is the control reg
 	// but even if it is, is it any use? How would we know what to expect?
 
@@ -102,7 +98,7 @@ void Systronix_PCA9557::begin(void) {
 	// don't invert any inputs
 	register_write(PCA9557_INP_INVERT_REG, 0x00);
 
-	// init outputs to all zero
+	// init outputs 
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 }
 
@@ -184,7 +180,7 @@ uint8_t Systronix_PCA9557::default_read ()
 {
 	byte b=0;
 	uint8_t recvd = 0xFF;	// init with error value
-	b = Wire.requestFrom(_base, (uint8_t)1, (uint8_t) false);
+	b = Wire.requestFrom(_base, 1, true);
 
 	if (1 != b)
 	{
@@ -201,32 +197,10 @@ uint8_t Systronix_PCA9557::default_read ()
  * @TODO move these into their own library
  */
 
-/*
- * SALT shift register control functions
- *
- * All Core board DB15s first go to a DC board, then optionally to an AC board.
- *
- * TODO THESE ARE WRONG FOR SALT2
- * bit 7 shift(H) / load(L) to DC board '165 pin 1, S(H)/LD(L)
- * bit 6 serial clock (sclk) to '595 pin 11, NXP SHCP, L->H clocks data into shift reg
- * bit 5 register clock rclk to '595 pin 12, NXP STCP, L->H transfers data to output regs
- * bit 4 data in from DC board's '165 parallel to serial shift registers (PCA9557 input)
- * bit 3 data out to '595 pin 14, NXP DS (PCA9557 output)
- * bit 2 N/C
- * bit 1 N/C
- * bit 0 LED(L), open drain, we use it to drive a status LED
- *
- * Outputs are bits 7..4 and bit 0
- * Input is on bit 3
- *
- * Change data output, then drive sclk low, then high to clock that bit
- * rclk must idle high so that the watchdog timer can count
- * drive rclk low then high again to load the shift registers into the output register
- *
- */
 
  /*
  * Pulse pin(s) from idle state to active state and back to idle.
+ * If idle is high then they will pulse low; idle low will pulse high
  * Leave with pin(s) in idle state.
  * Example: 
  * pin_pulse (0xFF, true) will pulse ALL pins H-L-H; 
@@ -245,6 +219,8 @@ uint8_t Systronix_PCA9557::default_read ()
 uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 {
 	uint8_t b = 0;
+	
+	Serial.print("pin_mask=0x"); Serial.println(pin_mask, HEX);
 
 	if (idle_high)
 	{
@@ -254,6 +230,8 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 	{
 		_out_data |= (pin_mask);	// set outputs to be pulsed	high	
 	}
+	// pulse outputs to non-idle state
+	if (_DEBUG>0) {Serial.print("out_data=0x"); Serial.println(_out_data, HEX);}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 
 	if (idle_high)
@@ -264,6 +242,8 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 	{
 		_out_data &= (~pin_mask);	// clr outputs to be idled low		
 	}
+	// restore outputs to idle state
+	if (_DEBUG>0) {Serial.print("out_data=0x"); Serial.println(_out_data, HEX);}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 	
 	return b;
