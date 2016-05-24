@@ -230,7 +230,7 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 {
 	uint8_t b = 0;
 	
-	Serial.print("pin_mask=0x"); Serial.println(pin_mask, HEX);
+	if (_DEBUG>0) Serial.print("pin_mask=0x"); Serial.println(pin_mask, HEX);
 
 	if (idle_high)
 	{
