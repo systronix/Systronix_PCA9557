@@ -28,8 +28,8 @@
  NOTES ABOUT WIRE
 
 Wire.endTransmission() seems to be only intended for use with a master write.
-Wire.requestFrom() is used to get bytes from a slave, with read().
-
+Wire.requestFrom(address, quantity, stop) is used to get bytes from a slave, with read().
+Be sure to set stop "true" to release the bus or it will send a restart 
 So to read three bytes, do a requestFrom(address, 2, true). << insists the first param is int.
 Compiler has major whines if called as shown in the online Wire reference.
 
@@ -71,16 +71,15 @@ Systronix_PCA9557::Systronix_PCA9557(uint8_t base)
 	BaseAddr = base;
 	static data _data;		// instance of the data struct
 	_data.address = _base;	// struct
-
-	_out_data = _SCLK | _RCLK595;	// clocks high to start
-
 	_inp_data = 0;
+	_out_data = 0;
+	_invert_mask = 0;
 
 }
 
 /**************************************************************************/
 /*!
-    @brief  Join the I2C bus as a master
+    @brief  Join the I2C bus as a master, call this once in setup()
 */
 /**************************************************************************/
 void Systronix_PCA9557::begin(void) {
@@ -90,19 +89,32 @@ void Systronix_PCA9557::begin(void) {
 	// @TODO add default read first thing to see if it is the control reg
 	// but even if it is, is it any use? How would we know what to expect?
 
+}
+
+/**
+ *  @brief Initialize the 9557 to a given state. Can be called as often as needed.
+ *  
+ *  Call after a hardware reset, if a reset can be caused programaatically
+ */
+void Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask) {
+	
+
+	// remember current invert mask
+	_invert_mask = invertmask;
+	// remember our current data output
+	_out_data = output;
+
 	// clear pin dir reg bits to 0 for all outputs
 	// datasheet calls this config register
 	// 0 bit = that bit is output
-	register_write(PCA9557_PIN_DIR_REG, ~_OUTMASK);
+	register_write(PCA9557_PIN_DIR_REG, ~outmask);
 
-	// don't invert any inputs
-	register_write(PCA9557_INP_INVERT_REG, 0x00);
+	// input read bits to be inverted if the reg bit is set, 0 = not inverted
+	register_write(PCA9557_INP_INVERT_REG, _invert_mask);
 
 	// init outputs 
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 }
-
-
 
 /*
 	Write to the control register. This is the register accessed
@@ -159,6 +171,11 @@ uint8_t Systronix_PCA9557::register_write (uint8_t reg, uint8_t data)
 {
 	uint8_t b = 0;
 	
+	if (PCA9557_OUT_PORT_REG == reg)
+	{
+		_out_data = data;	// update our remembered output reg value
+	}
+	
 	Wire.beginTransmission(_base);
 	// write data to control register only 2 lsbs matter
 	// returns # of bytes written
@@ -190,13 +207,6 @@ uint8_t Systronix_PCA9557::default_read ()
 	recvd = Wire.read();
 	return recvd;
 }
-
-/*
- * These are functions which use the library in a specific way for SALT
- * and should be moved into their own library.
- * @TODO move these into their own library
- */
-
 
  /*
  * Pulse pin(s) from idle state to active state and back to idle.
@@ -246,120 +256,6 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 	if (_DEBUG>0) {Serial.print("out_data=0x"); Serial.println(_out_data, HEX);}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 	
-	return b;
-}
-
-/*
- * Assume clock is high when resting.
- * Pulse the serial bit clock low then back high.
- * Leave with clock high.
- *
- * @deprecated, use pins_pulse instead
- */
-uint8_t Systronix_PCA9557::sclk_pulse ()
-{
-	uint8_t b = 0;
-
-	// clear the clock bit
-	_out_data &= (~_SCLK);
-	register_write(PCA9557_OUT_PORT_REG, _out_data);
-
-	// set the clock bit high
-	_out_data |= _SCLK;
-	register_write(PCA9557_OUT_PORT_REG, _out_data);
-
-	 return b;
-}
-
-/*
- * Pulse rclk
- * Assume clock is high when resting.
- * Pulse the serial bit clock low then back high.
- * Leave with clock high.
- *
- * @deprecated, use pins_pulse instead
- */
-uint8_t Systronix_PCA9557::rclk_pulse ()
-{
-	uint8_t b = 0;
-
-	// clear the clock bit
-	_out_data &= (~_RCLK595);
-	_out_data &= (~_LED);
-	register_write(PCA9557_OUT_PORT_REG, _out_data);
-
-	// set the clock bit high
-	_out_data |= _RCLK595;
-	_out_data |= _LED;
-	register_write(PCA9557_OUT_PORT_REG, _out_data);
-
-	 return b;
-}
-
-/*
- * Data is sent lsb first at least for now
- *
- * @TODO move this to SALT-specific library
- */
-uint8_t Systronix_PCA9557::shift_out_16bits (uint16_t data)
-{
-	uint8_t b = 0;
-
-	uint16_t bit = data;
-
-	for (uint8_t i=0; i<16; i++)
-	{
-		if ((bit & 0x01) == 1)
-		{
-			// set the bit
-			_out_data |= (_SDOUT);
-		}
-		else
-		{
-			// clear the bit
-			_out_data &= (~_SDOUT);
-		}
-		sclk_pulse ();		// change to pins_pulse
-
-		// shift in next bit
-		bit = bit >> 1;
-	}
-
-	rclk_pulse();	// change to pins_pulse
-	return b;
-}
-
-/*
- * Data is sent lsb first at least for now
- * Shift 32 bits through presumed DC and AC registers, then latch it.
- *
- * @TODO move this to SALT-specific library
- */
-uint8_t Systronix_PCA9557::shift_out_32bits (uint32_t data)
-{
-	uint8_t b = 0;
-
-	uint32_t bit = data;
-
-	for (uint8_t i=0; i<32; i++)
-	{
-		if ((bit & 0x01) == 1)
-		{
-			// set the bit
-			_out_data |= (_SDOUT);
-		}
-		else
-		{
-			// clear the bit
-			_out_data &= (~_SDOUT);
-		}
-		sclk_pulse ();	// change to pins_pulse
-
-		// shift in next bit
-		bit = bit >> 1;
-	}
-
-	rclk_pulse();	// change to pins_pulse
 	return b;
 }
 
