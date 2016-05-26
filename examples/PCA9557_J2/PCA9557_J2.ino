@@ -1,5 +1,5 @@
 
-/** ---------- SALT_J2_Test ------------------------
+/** ---------- PCA9557_J2 ------------------------
  *  
  *  Controller must be Teensy 3.1 or 3.2
  *  Copyright 2016 Systronix Inc www.systronix.com
@@ -18,6 +18,7 @@
 /** ---------- REVISIONS ----------
  *  
  *  2016 May 26 bboyes moved into Systronix_PCA9557 examples folder
+ *				Changed name to PCA9557_J2
  *  2016 May 15 bboyes Start with new SALT 2v0 board
  */
 
