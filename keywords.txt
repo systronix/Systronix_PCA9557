@@ -1,24 +1,26 @@
 // Class, should be orange
-Systronix_PCAL9535A	KEYWORD1
+Systronix_PCA9557	KEYWORD1
 
 // Functions, should be brown
-begin	KEYWORD2
-writeRegPair	KEYWORD2
-writeRegister	KEYWORD2
-readRegister	KEYWORD2
+begin			KEYWORD2
+init			KEYWORD2
+control_write	KEYWORD2
+register_write	KEYWORD2
+default_read	KEYWORD2
+pin_pulse		KEYWORD2
+pin_drive		KEYWORD2
+input_read		KEYWORD2
+output_read		KEYWORD2
 
 // Variables
 BaseAddr	KEYWORD0
 
 // Manifest Constants
-IN_PORT_0_REG	LITERAL1
-IN_PORT_1_REG	LITERAL1
-OUT_PORT_0_REG	LITERAL1
-OUT_PORT_1_REG	LITERAL1
-POL_INV_PORT_0_REG	LITERAL1
-POL_INV_PORT_1_REG	LITERAL1
-CONFIG_PORT_0_REG	CONFIG_PORT_0_REG
-CONFIG_PORT_1_REG	CONFIG_PORT_0_REG
+PCA9557_INP_PORT_REG	LITERAL1
+PCA9557_OUT_PORT_REG	LITERAL1
+PCA9557_INP_INVERT_REG	LITERAL1
+PCA9557_PIN_DIR_REG		LITERAL1
+
 
 // Test of all highlighting values - KEYWORD7 causes IDE problems! Don't use it.
 AKW0	KEYWORD0	// bold gray
