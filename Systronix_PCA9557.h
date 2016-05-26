@@ -96,6 +96,10 @@ class Systronix_PCA9557
 		uint8_t BaseAddr;    // I2C address, only the low 7 bits matter
 
 		uint8_t pin_pulse (uint8_t pin_mask, boolean idle_high);
+		uint8_t pin_drive (uint8_t pin_mask, boolean high);
+		
+		uint8_t input_read ();
+		uint8_t output_read ();
 
 	private:
 
@@ -104,3 +108,5 @@ class Systronix_PCA9557
 
 	
 #endif	// PCA9557_H_
+
+

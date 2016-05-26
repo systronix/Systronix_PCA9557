@@ -57,7 +57,7 @@ Compiler has major whines if called as shown in the online Wire reference.
 #include <Arduino.h>
 #include "Systronix_PCA9557.h"
 
-#define _DEBUG 0
+#define _DEBUG 1
 
 /**************************************************************************/
 /*!
@@ -124,7 +124,7 @@ void Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask
 	It can also be written, but how?	
 	
 	Only 2 lsbs matter: they act as address to four device I/O registers:
-	00 read only input port register (writes have no effect)
+	00 read-only input port register (writes have no effect)
 		??? Are writes ACKed?
 		read the value on the actual device pin
 	01 read/write output port register 
@@ -234,14 +234,14 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 
 	if (idle_high)
 	{
-		_out_data &= (~pin_mask);	// clear outputs to be pulsed low
+		_out_data &= ((~pin_mask) & 0x0FF);	// clear outputs to be pulsed low
 	}
 	else
 	{
 		_out_data |= (pin_mask);	// set outputs to be pulsed	high	
 	}
 	// pulse outputs to non-idle state
-	if (_DEBUG>0) {Serial.print("out_data=0x"); Serial.println(_out_data, HEX);}
+	if (_DEBUG>0) {Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 
 	if (idle_high)
@@ -250,13 +250,81 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 	}
 	else
 	{
-		_out_data &= (~pin_mask);	// clr outputs to be idled low		
+		_out_data &= ((~pin_mask) & 0x0FF);	// clr outputs to be idled low		
 	}
 	// restore outputs to idle state
-	if (_DEBUG>0) {Serial.print("out_data=0x"); Serial.println(_out_data, HEX);}
+	if (_DEBUG>0) {Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 	
 	return b;
 }
 
+ /*
+ * Drive pin(s) to a high or low voltage level
+ * If boolean high is true they will be driven to a high level.
+ * Leave with pin(s) in new state.
+ * Example: 
+ * pin_drive (0xFF, true) will set ALL pins high
+ * pin_drive (0x02, true) 0x02 will drive output 1 to high level.
+ *
+ * This only actually drives pins defined as outputs in the config register
+ *
+ * @TODO decide what to return and add support for it
+ * See pin_pulse comments
+ *
+ * @param pin [0..0xFF] the device output pin(s) you want to drive to new state
+ * @param high if true sets pin(s) high otherwise will drive to low level
+ */
+uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
+{
+	uint8_t b = 0;
+	
+	if (_DEBUG>0) Serial.print("drive pin_mask=0x"); Serial.println(pin_mask, HEX);
 
+	if (high)
+	{
+		_out_data |= (pin_mask);	// set outputs to be driven	high
+	}
+	else
+	{
+		_out_data &= ((~pin_mask) & 0x0FF);	// clear outputs to be driven low
+			
+	}
+	// drive output(s) to new state
+	if (_DEBUG>0) {Serial.print("drive out_data=0x"); Serial.println(_out_data, HEX);}
+	register_write(PCA9557_OUT_PORT_REG, _out_data);
+	
+	return b;
+}
+
+/**
+ *  Read the input register 0x00 and return its value
+ *  
+ *  TODO optionally filter off output bits?
+ *  
+ */
+uint8_t Systronix_PCA9557::input_read ()
+{
+	uint8_t data_read;
+	control_write (PCA9557_INP_PORT_REG);
+	data_read = default_read();
+	return data_read;
+}
+
+/**
+ * Read the output register
+ *  
+ * Reading this reg returns the value of the internal "output register", 
+ * NOT the actual device pin value. So reading this only confirms its setting.
+ * Only device pins set as outputs in the PCA9557_PIN_DIR_REG will  
+ * have the output register's pin value driven to its external device pin.
+ * Read the input port to read the actual value on all device I/O pins, 
+ * including any which are outputs.
+ */
+uint8_t Systronix_PCA9557::output_read ()
+{
+	uint8_t data_read;
+	control_write (PCA9557_OUT_PORT_REG);
+	data_read = default_read();
+	return data_read;
+}
