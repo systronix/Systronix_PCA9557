@@ -328,3 +328,51 @@ uint8_t Systronix_PCA9557::output_read ()
 	data_read = default_read();
 	return data_read;
 }
+
+/**
+ *  Bit shifting functions, just here for now to test them.
+ *  
+ *  Try to move these to the SALT_JX library
+ */
+ /*
+ * Data is sent lsb first at least for now
+ *
+ */
+uint8_t Systronix_PCA9557::shift_out_16bits (uint16_t data, uint8_t outmask)
+{
+	uint8_t b = 0;
+
+	uint16_t bit = data;
+
+	for (uint8_t i=0; i<16; i++)
+	{
+		if (1 == (bit & 0x01))
+		{
+			// set the bit
+			_out_data |= (outmask);
+		}
+		else
+		{
+			// clear the bit
+			_out_data &= (0x0FF & (~outmask));
+		}
+		
+		// _out_data is ready to be sent to output reg
+		// we also need to pulse the clock H-L-H
+		
+		pin_pulse();		//
+
+		// shift in next bit
+		bit = bit >> 1;
+	}
+
+	rclk_pulse();	// change to pins_pulse
+	return b;
+}
+
+ 
+ 
+ 
+ 
+ 
+ 
