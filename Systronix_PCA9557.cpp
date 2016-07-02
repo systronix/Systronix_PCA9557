@@ -165,13 +165,15 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 	 return b;
 }
 
-/*
+/**
  * Write data to the register at location 'reg'
  *
  * returns # of bytes written which should be 2, 3 if error?
  *
+ * This can be used as a general output byte write function
+ *
  * @TODO check reg for valid range
- */
+ **/
 uint8_t Systronix_PCA9557::register_write (uint8_t reg, uint8_t data)
 {
 	uint8_t b = 0;
@@ -213,7 +215,7 @@ uint8_t Systronix_PCA9557::default_read ()
 	return recvd;
 }
 
- /*
+ /**
  * Pulse pin(s) from idle state to active state and back to idle.
  * If idle is high then they will pulse low; idle low will pulse high
  * Leave with pin(s) in idle state.
@@ -222,6 +224,9 @@ uint8_t Systronix_PCA9557::default_read ()
  * 0x02 will pulse output 1
  *
  * This only actually drives pins defined as outputs in the config register
+ *  
+ *  Note this only changes the state of the pins in pin_mask. Other outputs
+ *  are tracked in a private variable and their state is unchanged.
  *
  * @TODO decide what to return and add support for it
  * maybe return boolean true if all bits driven are actually output bits?
@@ -230,7 +235,7 @@ uint8_t Systronix_PCA9557::default_read ()
  *
  * @param pin [0..0xFF] the device output pin(s) you want to pulse
  * @param idle_high if true otherwise will idle low
- */
+ **/
 uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 {
 	uint8_t b = 0;
@@ -273,6 +278,9 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
  * pin_drive (0x02, true) 0x02 will drive output 1 to high level.
  *
  * This only actually drives pins defined as outputs in the config register
+ * 
+ *  Note this only changes the state of the pins in pin_mask. Other outputs
+ *  are tracked in a private variable and their state is unchanged.
  *
  * @TODO decide what to return and add support for it
  * See pin_pulse comments
