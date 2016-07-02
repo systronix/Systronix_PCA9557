@@ -17,6 +17,7 @@
  
 /** ---------- REVISIONS ----------
  *  
+ *  2016 Jun 28 bboyes, adding use of NAP_pod_load_defs.h for BIT0, etc.
  *  2016 May 26 bboyes moved into Systronix_PCA9557 examples folder
  *				Changed name to PCA9557_J2
  *  2016 May 15 bboyes Start with new SALT 2v0 board
@@ -25,6 +26,7 @@
 
 #include <Arduino.h>
 #include <Systronix_PCA9557.h>
+#include <NAP_pod_load_defs.h>
 
  /**
  * debug level
@@ -40,6 +42,7 @@ uint16_t dtime = 1000;  // delay in loop
 /**
  * These are the addresses of the I2C devices which drive the related
  * Core DB15 connector and the Core FETs
+ * @TODO make these addresses manifest constants in some appropriate way
  */
 #define I2C_J2 0x1B
 #define I2C_J3 0x1A
@@ -53,35 +56,35 @@ uint16_t dtime = 1000;  // delay in loop
 
 // SALT2 Core SDOUT on J2,3,4 pins 1/2 to '595 SDIN of DC and AC boards: 9557 IO7, 0x80 
 // output from 9577 to '595 Din
-#define SDOUT 0x80
+#define SDOUT BIT7 	// 0x80
 
 // SALT2 Core SCLK on J2,3,4 pins 5/6 to '595 and '165 SCLK of DC and AC boards: 9557 IO6, 0x40,
 // serial clock, used by both 595 and 165
-#define SCLK 0x40
+#define SCLK BIT6	// 0x40
 
 // SALT2 J2,3,4 pins 9/10 to '165 Shift/Load of DC boards: Core SH/LD is 9557 IO5, 0x20
 // SHIFT(H), LOAD(L) only used by DC board '165
-#define SHIFT165 0x20
+#define SHIFT165 BIT5	// 0x20
 
 // SALT2 Core SDIN on J2,3,4 pins 3/4 from '165 SDOUT of DC boards: 9557 IO4, 0x10 
 // input to 9577 from '165 Qout
-#define SDIN 0x10
+#define SDIN BIT4	// 0x10
 
 // SALT2 RCLK on J2,3,4 pins 7/8 to DC and AC boards '595 RCLK: 9557 IO3, 0x08 
 // only used by '595, must idle high
-#define RCLK595 0x08		
+#define RCLK595 BIT3	// 0x08		
 
 // bits 1 and 2 (0x02, 0x04) not connected
 
 // SALT2 yellow LED for J2,3,4 intended to show activity on that port: 9557 IO0, 0x01 
 // open drain, clearing this bit drives output low = LED on
-#define LED 0x01
+#define LED BIT0	// 0x01
 
 /**
  *  bit 5 is input; bits 2 and 1 are not connected, Bit 0 is the activity LED for that device
  *  so this mask has a '1' for every bit which is used as output
  *  Note: enclosing parentheses are required to force the '~' operator to operate on the whole quantity
- *  note just the first manifest constant!
+ *  not just the first manifest constant!
  */
 #define OUTMASK (RCLK595 | SCLK | SDOUT | SHIFT165 | LED)
 
@@ -124,12 +127,12 @@ void setup(void)
 	/**
 	 *  Serial1 is a proprietary LCD and cap touch keypad
 	 */
-	Serial1.begin(9600);			// UI Side 0 = LCD and keypad
-	while((!Serial1) && (millis()<10000));		// wait until serial port is open or timeout
+	// Serial1.begin(9600);			// UI Side 0 = LCD and keypad
+	// while((!Serial1) && (millis()<10000));		// wait until serial port is open or timeout
 	
-	delay(2000);
+	// delay(2000);
 	//                0123456789ABCDEF 
-	Serial1.println("dSALT J2 I2C Test");
+	// Serial1.println("dSALT J2 I2C Test");
 
 	/**
 	* Start, now inits invert and output bit enable, clears outputs
@@ -143,6 +146,9 @@ void setup(void)
 	coreJ2.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
 	coreJ3.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
 	coreJ4.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
+	// FETs don't have clocks to downstream devices
+	// set all as outputs, all outputs off/low, no input inversion (none are inputs anyway)
+	coreFET.init(0xFF, 0x00, 0x00);
 
 	Serial.print(" Interval is ");
 	Serial.print(dtime/1000);
@@ -185,52 +191,14 @@ void loop(void)
 	Serial.println(read1, HEX);
 	
 	coreJ2.pin_drive (LED, false);
+	// coreFET.pin_drive (LED, false);
+	coreFET.pin_drive ((0x80 | LED), false);
 	delay(1000);
 	
+	coreFET.pin_drive ((0x80 | LED), true);
 	coreJ2.pin_drive (LED, true);
+	// coreFET.pin_drive (LED, true);
 	delay(1000);
 	
 	
-	
-//		coreJ2.pin_pulse(LED, true);
-//		coreJ2.pin_pulse(LED, true);
-//		delay(1);
-
-	
-	Serial1.print("dSALT2 ");
-	Serial1.println(millis());
-	
-/**
- *  This code reads from an external keypad
- *  Comment out or delete if you don't want it.
- */
-	uint8_t read_ui = 0;		// byte of data from UI keypad
-	while (Serial1.available() > 0 )
-	{
-		read_ui = Serial1.read();
-		if (read_ui > 0x1F)	// is it printable?
-		{
-			Serial.print(char(read_ui));
-		}
-		else
-		{
-			if (0x0D == read_ui) Serial.print("<0D>");
-			if (0x0A == read_ui) 
-			{
-				Serial.print("<0A>"); 
-				Serial.println();
-			}
-		}
-	}
-}	// end of loop
-
-
-
-
-
-
-
-
-
-
-
+}

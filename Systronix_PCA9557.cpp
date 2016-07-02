@@ -94,7 +94,12 @@ void Systronix_PCA9557::begin(void) {
 /**
  *  @brief Initialize the 9557 to a given state. Can be called as often as needed.
  *  
- *  Call after a hardware reset, if a reset can be caused programaatically
+ *  Call after a hardware reset, if a reset can be caused programaatically.
+ *  @param outmask set bits will be outputs. 0xFF makes all pins outputs
+ *  @param output value to write to output pins, writing a 1 drives outputs high
+ *  except bit 0 which is open drain. 
+ *  @param invertmask applies to pins set as inputs. Setting a mask bit inverts that
+ *  input when it is read. After POR this reg is 0xF0
  */
 void Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask) {
 	
@@ -107,7 +112,7 @@ void Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask
 	// clear pin dir reg bits to 0 for all outputs
 	// datasheet calls this config register
 	// 0 bit = that bit is output
-	register_write(PCA9557_PIN_DIR_REG, ~outmask);
+	register_write(PCA9557_CONFIG_REG, ~outmask);
 
 	// input read bits to be inverted if the reg bit is set, 0 = not inverted
 	register_write(PCA9557_INP_INVERT_REG, _invert_mask);
@@ -316,7 +321,7 @@ uint8_t Systronix_PCA9557::input_read ()
  *  
  * Reading this reg returns the value of the internal "output register", 
  * NOT the actual device pin value. So reading this only confirms its setting.
- * Only device pins set as outputs in the PCA9557_PIN_DIR_REG will  
+ * Only device pins set as outputs in the PCA9557_CONFIG_REG will  
  * have the output register's pin value driven to its external device pin.
  * Read the input port to read the actual value on all device I/O pins, 
  * including any which are outputs.

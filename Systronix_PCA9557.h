@@ -50,7 +50,7 @@
  * Config register sets each bit's mode: 1=input, 0=output
  * POR = 0xFF (all I/O bits are inputs)
  */
-#define	PCA9557_PIN_DIR_REG	0x03
+#define	PCA9557_CONFIG_REG	0x03
 
 
 
