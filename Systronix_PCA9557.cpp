@@ -57,7 +57,7 @@ Compiler has major whines if called as shown in the online Wire reference.
 #include <Arduino.h>
 #include "Systronix_PCA9557.h"
 
-#define _DEBUG 1
+#define _DEBUG 0
 
 /**************************************************************************/
 /*!
@@ -240,7 +240,7 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 {
 	uint8_t b = 0;
 	
-	if (_DEBUG>0) Serial.print("pin_mask=0x"); Serial.println(pin_mask, HEX);
+//	if (_DEBUG>0) Serial.print("pin_mask=0x"); Serial.println(pin_mask, HEX);
 
 	if (idle_high)
 	{
@@ -251,7 +251,7 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 		_out_data |= (pin_mask);	// set outputs to be pulsed	high	
 	}
 	// pulse outputs to non-idle state
-	if (_DEBUG>0) {Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);}
+//	if (_DEBUG>0) {Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 
 	if (idle_high)
@@ -263,19 +263,20 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 		_out_data &= ((~pin_mask) & 0x0FF);	// clr outputs to be idled low		
 	}
 	// restore outputs to idle state
-	if (_DEBUG>0) {Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);}
+//	if (_DEBUG>0) {Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 	
 	return b;
 }
 
- /*
+ /**
  * Drive pin(s) to a high or low voltage level
  * If boolean high is true they will be driven to a high level.
  * Leave with pin(s) in new state.
  * Example: 
- * pin_drive (0xFF, true) will set ALL pins high
  * pin_drive (0x02, true) 0x02 will drive output 1 to high level.
+ * pin_drive (0xFF, true) will set pins IO7–IO1 high, IO0 will drive active low
+ * NOTE: IO0 output IS opposite to all other outputs
  *
  * This only actually drives pins defined as outputs in the config register
  * 
@@ -287,12 +288,12 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
  *
  * @param pin [0..0xFF] the device output pin(s) you want to drive to new state
  * @param high if true sets pin(s) high otherwise will drive to low level
- */
+ **/
 uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
 {
 	uint8_t b = 0;
 	
-	if (_DEBUG>0) Serial.print("drive pin_mask=0x"); Serial.println(pin_mask, HEX);
+//	if (_DEBUG>0) Serial.print("drive pin_mask=0x"); Serial.println(pin_mask, HEX);
 
 	if (high)
 	{
@@ -304,7 +305,7 @@ uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
 			
 	}
 	// drive output(s) to new state
-	if (_DEBUG>0) {Serial.print("drive out_data=0x"); Serial.println(_out_data, HEX);}
+//	if (_DEBUG>0) {Serial.print("drive out_data=0x"); Serial.println(_out_data, HEX);}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 	
 	return b;
