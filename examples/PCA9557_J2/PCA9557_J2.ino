@@ -21,13 +21,14 @@
  *  2016 May 26 bboyes moved into Systronix_PCA9557 examples folder
  *				Changed name to PCA9557_J2
  *  2016 May 15 bboyes Start with new SALT 2v0 board
- *	2016 Jul 4	wsk		complete thrash of this example used as a test bed for SALT_JX class
+ *	2016 Jul 4	wsk		complete thrash of this example used as a test bed for SALT_JX and SALT_FETs classes
  */
 
 
 #include <Arduino.h>
 #include <Systronix_PCA9557.h>
 #include <SALT_JX.h>
+#include <SALT_FETs.h>
 #include <NAP_pod_load_defs.h>
 
 /**
@@ -38,7 +39,6 @@
 #define I2C_J2 0x1B
 #define I2C_J3 0x1A
 #define I2C_J4 0x19
-#define I2C_FET 0x1C
 
 // TODO: move to common .h file
 #define JX_LED_ON	false		// yes, opposite to the other bits.  writing a 1 to the 9557 output register
@@ -75,13 +75,7 @@
 // open drain, SETTING (yes, opposite to the other bits) this bit drives output low = LED on
 #define LED BIT0	// 0x01
 
-// coreFET defines: TODO: move to appropriate .h file
-// LED on bit 0 uses the LED define above
-#define	LIGHTS		BIT2		// when set HIGH, turns on the habitats' fluorescent lights
-#define	ALARM		BIT3		// when set HIGH, sounds the alarm at the top of the A habitat
-#define	FAN3		BIT5		// when set HIGH, turns on the left-most fan
-#define	FAN2		BIT6		// when set HIGH, turns on the middle fan
-#define	FAN1		BIT7		// when set HIGH, turns on the right-most fan
+
 
 
 /**
@@ -97,26 +91,35 @@
  */
 #define INMASK (SDIN)
 
+#ifdef USE_CLASS
 SALT_JX coreJ2 (2);
 //SALT_JX coreJ3 (3);
 //SALT_JX coreJ4 (4);
+#else
+extern void J2_update (void);
+extern void J3_update (void);
+extern void J4_update (void);
+extern struct J_data J2_data, J3_data, J4_data;
+#endif
+
+SALT_FETs coreFETs (1);
 
 Systronix_PCA9557 coreJ2reg(I2C_J2);
 Systronix_PCA9557 coreJ3reg(I2C_J3);
 Systronix_PCA9557 coreJ4reg(I2C_J4);
 
-Systronix_PCA9557 coreFET(I2C_FET);
+
 
 // TODO: move to common .h file as #defines;
 uint8_t periph_rst = 22;	// peripheral reset asserted LOW to PCA9557, etc on board
 uint8_t ether_rst = 8;		// Wiznet module reset LOW
 
-struct J_data
-	{
-	uint32_t	DC_data_in;			// data read from the DC board '165 shift register
-	uint16_t	AC_data_out;		// data sent to the AC board; send this before sending DC
-	uint16_t	DC_data_out;		// data sent to the DC board
-	} J2_data , J3_data, J4_data;
+//struct J_data
+//	{
+//	uint32_t	DC_data_in;			// data read from the DC board '165 shift register
+//	uint16_t	AC_data_out;		// data sent to the AC board; send this before sending DC
+//	uint16_t	DC_data_out;		// data sent to the DC board
+//	} J2_data , J3_data, J4_data;
 
 	
 //---------------------------< S E T U P >--------------------------------------------------------------------
@@ -148,16 +151,16 @@ void setup(void)
 	coreJ2reg.begin();
 	coreJ3reg.begin();
 	coreJ4reg.begin();
-	coreFET.begin();
+//	coreFETreg.begin();
 	
 	// outmask, outdata, inputinvert
-	coreJ2reg.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
-	coreJ3reg.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
-	coreJ4reg.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
-	// FETs don't have clocks to downstream devices
-	// set all as outputs, all outputs off/low, no input inversion (none are inputs anyway)
-	coreFET.init(0xFF, 0x00, 0x00);
+//	coreJ2reg.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
+//	coreJ3reg.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
+//	coreJ4reg.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
 
+	coreFETs.init ();
+
+#ifdef USE_CLASS
 	coreJ2.AC_data_out = 0;				// clear DC and AC 595 registers
 	coreJ2.DC_data_out = 0;
 //	coreJ3.AC_data_out = 0;				// clear DC and AC 595 registers
@@ -170,27 +173,52 @@ void setup(void)
 	coreJ2.AC_data_out = 0x8000;	// setup for walking-ones test
 //	coreJ3.AC_data_out = 0x8000;	// setup for walking-ones test
 //	coreJ3.AC_data_out = 0x8000;	// setup for walking-ones test
+#else
+	J2_data.AC_data_out = 0;				// clear DC and AC 595 registers
+	J2_data.DC_data_out = 0;
+	J3_data.AC_data_out = 0;				// clear DC and AC 595 registers
+	J3_data.DC_data_out = 0;
+	J4_data.AC_data_out = 0;				// clear DC and AC 595 registers
+	J4_data.DC_data_out = 0;
+
+	J2_update ();					// do it
+	J3_update ();					// do it
+	J4_update ();					// do it
+
+	J2_data.AC_data_out = 0x8000;	// setup for walking-ones test
+	J3_data.AC_data_out = 0x8000;	// setup for walking-ones test
+	J4_data.AC_data_out = 0x8000;	// setup for walking-ones test
+#endif
+	coreFETs.FET_settings = 0x80;	// init for walking one test
 	}
 
-	uint8_t fet_test = 0x80;
+//	uint8_t fet_test = 0x80;
 
 
 //---------------------------< L O O P >----------------------------------------------------------------------
 
 void loop(void) 
 	{
-	if (0x80 & fet_test)
-		fet_test = 4;								// reset to bit 2, fluorescents
+	if (0x80 & coreFETs.FET_settings)
+		coreFETs.FET_settings = 4;								// reset to bit 2, fluorescents
 	else
-		fet_test <<= 1;
+		coreFETs.FET_settings <<= 1;
 
-	coreFET.pin_drive ((fet_test | LED), HIGH);		// HIGH turn the LED off and the FET on
+//	coreFETreg.pin_drive ((fet_test | LED), HIGH);		// HIGH turn the LED off and the FET on
+	coreFETs.update();		// update the fets
+	delay(20);
+	
+	coreFETs.update();		// update the fets
+//	coreFETs.LED_off ();	// turn off the 9557 LED
 	delay(1000);
 	
-	coreFET.pin_drive ((fet_test | LED), LOW);		// LOW turn the LED on and the FET off
-//	coreJ2reg.pin_drive (LED, true);
-	// coreFET.pin_drive (LED, true);
-	
+//	coreFETreg.pin_drive ((fet_test | LED), LOW);		// LOW turn the LED on and the FET off
+//	coreFETs.update();		// turn off the LED
+
+
+	Serial.print("------INPUT------0x");
+
+#ifdef USE_CLASS
 	if (0x8000 & coreJ2.AC_data_out)			// when the '1' is in the MSB (bit 31)
 		{
 		coreJ2.AC_data_out = 0;				// clear so there is only one '1'
@@ -219,30 +247,45 @@ void loop(void)
 //		coreJ4.DC_data_out <<= 1;
 		}
 
-
 	coreJ2.update ();						// do it
 //	coreJ3.update (coreJ3reg);				// do it
 //	coreJ4.update (coreJ4reg);				// do it
+	Serial.println(coreJ2.DC_data_in, HEX);
 
-/*	if (0x8000 & J2_data.AC_data_out)		// when the '1' is in the MSB (bit 31)
+#else
+	if (0x8000 & J2_data.AC_data_out)			// when the '1' is in the MSB (bit 31)
 		{
-		J2_data.AC_data_out = 0;
-		J2_data.DC_data_out = 1;
+		J2_data.AC_data_out = 0;				// clear so there is only one '1'
+		J2_data.DC_data_out = 1;				// shift the '1' to lsb of DC data
+		J3_data.AC_data_out = 0;				// clear so there is only one '1'
+		J3_data.DC_data_out = 1;				// shift the '1' to lsb of DC data
+		J4_data.AC_data_out = 0;				// clear so there is only one '1'
+		J4_data.DC_data_out = 1;				// shift the '1' to lsb of DC data
 		}
-	else if (0x8000 & J2_data.DC_data_out)	// when the '1' is in the DC board's MSB (bit 15)
+	else if (0x8000 & J2_data.DC_data_out)		// when the '1' is in the DC board's MSB (bit 15)
 		{
-		J2_data.AC_data_out = 1;			// shift the '1' to lsb of DC data
-		J2_data.DC_data_out = 0;			// clear so there is only one '1'
+		J2_data.AC_data_out = 1;				// shift the '1' to lsb of DC data
+		J2_data.DC_data_out = 0;				// clear so there is only one '1'
+		J3_data.AC_data_out = 1;				// shift the '1' to lsb of DC data
+		J3_data.DC_data_out = 0;				// clear so there is only one '1'
+		J4_data.AC_data_out = 1;				// shift the '1' to lsb of DC data
+		J4_data.DC_data_out = 0;				// clear so there is only one '1'
 		}
 	else
 		{
 		J2_data.AC_data_out <<= 1;			// shift both registers toward msb
 		J2_data.DC_data_out <<= 1;
+		J3_data.AC_data_out <<= 1;			// shift both registers toward msb
+		J3_data.DC_data_out <<= 1;
+		J4_data.AC_data_out <<= 1;			// shift both registers toward msb
+		J4_data.DC_data_out <<= 1;
 		}
-	coreJ2.update ();
-*/
-	Serial.print("------INPUT------0x");
-	Serial.println(coreJ2.DC_data_in, HEX);
+
+	J2_update ();						// do it
+	J3_update ();						// do it
+	J4_update ();						// do it
+	Serial.println(J4_data.DC_data_in, HEX);
+#endif
 
 	delay(1000);
 	}
