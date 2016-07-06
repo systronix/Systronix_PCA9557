@@ -57,7 +57,7 @@ Compiler has major whines if called as shown in the online Wire reference.
 #include <Arduino.h>
 #include "Systronix_PCA9557.h"
 
-#define _DEBUG 1
+#define _DEBUG 0
 
 /**************************************************************************/
 /*!
@@ -69,8 +69,8 @@ Systronix_PCA9557::Systronix_PCA9557(uint8_t base)
 {
 	_base = base;
 	BaseAddr = base;
-	static data _data;		// instance of the data struct
-	_data.address = _base;	// struct
+//	static data _data;		// instance of the data struct
+//	_data.address = _base;	// struct
 	_inp_data = 0;
 	_out_data = 0;
 	_invert_mask = 0;
@@ -82,28 +82,26 @@ Systronix_PCA9557::Systronix_PCA9557(uint8_t base)
     @brief  Join the I2C bus as a master, call this once in setup()
 */
 /**************************************************************************/
-void Systronix_PCA9557::begin(void) {
-	// 
+void Systronix_PCA9557::begin(void)
+{
 	Wire.begin();	// join I2C as master
 	
 	// @TODO add default read first thing to see if it is the control reg
 	// but even if it is, is it any use? How would we know what to expect?
-
 }
 
 /**
  *  @brief Initialize the 9557 to a given state. Can be called as often as needed.
  *  
- *  Call after a hardware reset, if a reset can be caused programaatically.
+ *  Call after a hardware reset, if a reset can be caused programatically.
  *  @param outmask set bits will be outputs. 0xFF makes all pins outputs
  *  @param output value to write to output pins, writing a 1 drives outputs high
- *  except bit 0 which is open drain. 
+ *  except bit 0 which is open drain so drives low. 
  *  @param invertmask applies to pins set as inputs. Setting a mask bit inverts that
  *  input when it is read. After POR this reg is 0xF0
  */
-void Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask) {
-	
-
+void Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask)
+{
 	// remember current invert mask
 	_invert_mask = invertmask;
 	// remember our current data output
@@ -155,14 +153,14 @@ void Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask
 uint8_t Systronix_PCA9557::control_write (uint8_t data)
 {
 	uint8_t b = 0;
-	  Wire.beginTransmission(_base);
+	 Wire.beginTransmission(_base);
 
-	  // returns # of bytes written
-	  b = Wire.write(data);
-	  // returns 0 if no error
-	  b+= Wire.endTransmission();
+	 // returns # of bytes written
+	 b = Wire.write(data);
+	 // returns 0 if no error
+	 b+= Wire.endTransmission();
 
-	 return b;
+	return b;
 }
 
 /**
@@ -240,7 +238,9 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 {
 	uint8_t b = 0;
 	
-	if (_DEBUG>0) Serial.print("pin_mask=0x"); Serial.println(pin_mask, HEX);
+#if 0 < _DEBUG
+	Serial.print("pin_mask=0x"); Serial.println(pin_mask, HEX);
+#endif
 
 	if (idle_high)
 	{
@@ -250,8 +250,10 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 	{
 		_out_data |= (pin_mask);	// set outputs to be pulsed	high	
 	}
+#if 0 < _DEBUG
+	Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);
+#endif
 	// pulse outputs to non-idle state
-	if (_DEBUG>0) {Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 
 	if (idle_high)
@@ -262,20 +264,23 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 	{
 		_out_data &= ((~pin_mask) & 0x0FF);	// clr outputs to be idled low		
 	}
+#if 0 < _DEBUG
+	Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);
+#endif
 	// restore outputs to idle state
-	if (_DEBUG>0) {Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);}
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 	
 	return b;
 }
 
- /*
+ /**
  * Drive pin(s) to a high or low voltage level
  * If boolean high is true they will be driven to a high level.
  * Leave with pin(s) in new state.
  * Example: 
- * pin_drive (0xFF, true) will set ALL pins high
  * pin_drive (0x02, true) 0x02 will drive output 1 to high level.
+ * pin_drive (0xFF, true) will set pins IO7–IO1 high, IO0 will drive active low
+ * NOTE: IO0 output IS opposite to all other outputs
  *
  * This only actually drives pins defined as outputs in the config register
  * 
@@ -287,12 +292,14 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
  *
  * @param pin [0..0xFF] the device output pin(s) you want to drive to new state
  * @param high if true sets pin(s) high otherwise will drive to low level
- */
+ **/
 uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
 {
 	uint8_t b = 0;
 	
-	if (_DEBUG>0) Serial.print("drive pin_mask=0x"); Serial.println(pin_mask, HEX);
+#if 0 < _DEBUG
+	Serial.print("drive pin_mask=0x"); Serial.println(pin_mask, HEX);
+#endif
 
 	if (high)
 	{
@@ -304,7 +311,9 @@ uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
 			
 	}
 	// drive output(s) to new state
-	if (_DEBUG>0) {Serial.print("drive out_data=0x"); Serial.println(_out_data, HEX);}
+#if 0 < _DEBUG
+	Serial.print("drive out_data=0x"); Serial.println(_out_data, HEX);
+#endif
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
 	
 	return b;
