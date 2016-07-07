@@ -131,11 +131,27 @@ void setup(void)
 	while((!Serial1) && (millis()<10000));		// wait until serial port is open or timeout
 	Serial.print("Serial1 ready at ");
 	Serial.println(millis());
-	
-	delay(2000);
-	               // 0123456789ABCDEF 
-	Serial1.println("dSALT J2 I2C Test");
+	Serial1.println("d");	// clear lcd
 	Serial1.flush();
+	delay(20);	// for LCD, 5 msec not always enough
+	
+	Serial2.begin(9600);			// UI Side 0 = LCD and keypad
+	while((!Serial2) && (millis()<10000));		// wait until serial port is open or timeout
+	Serial.print("Serial2 ready at ");
+	Serial.println(millis());
+	Serial2.println("d");	// clear lcd
+	Serial2.flush();
+	delay(20);	// for LCD, 5 msec not always enough
+	
+	// delay(1000);
+
+	              // 0123456789ABCDEF 
+	Serial1.println("dSALT J2 I2C TestSerial 1");
+	Serial1.flush();
+	
+		              // 0123456789ABCDEF 
+	Serial2.println("dSALT J2 I2C TestSerial 2");
+	Serial2.flush();
 
 	Serial.println("Ready to instantiate coreJ2,3,4");
 	
@@ -198,14 +214,24 @@ void loop(void)
 	Serial.println(read1, HEX);
 	
 	coreJ2.pin_drive (LED, false);
+	coreJ3.pin_drive (LED, false);
+	coreJ4.pin_drive (LED, false);
 	// coreFET.pin_drive (LED, false);
 	coreFET.pin_drive ((0x80 | LED), false);
 	delay(1000);
 	
 	coreFET.pin_drive ((0x80 | LED), true);
 	coreJ2.pin_drive (LED, true);
+	coreJ3.pin_drive (LED, true);
+	coreJ4.pin_drive (LED, true);
 	// coreFET.pin_drive (LED, true);
 	delay(1000);
+	
+	Serial1.print("d");
+	Serial1.println(millis());
+	
+	Serial2.print("d");
+	Serial2.println(millis());
 	
 	
 }
