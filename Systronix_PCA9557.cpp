@@ -80,6 +80,8 @@ void Systronix_PCA9557::setup(uint8_t base)
 /**************************************************************************/
 /*!
     @brief  Join the I2C bus as a master, call this once in setup()
+	
+	Wire.begin() doesn't return anything
 */
 /**************************************************************************/
 void Systronix_PCA9557::begin(void)
@@ -99,8 +101,11 @@ void Systronix_PCA9557::begin(void)
  *  except bit 0 which is open drain so drives low. 
  *  @param invertmask applies to pins set as inputs. Setting a mask bit inverts that
  *  input when it is read. After POR this reg is 0xF0
+ *  @return 0 if OK, and an error code if not
+ *  
+ *  @TODO add actual verification that init could talk to the hardware
  */
-void Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask)
+uint8_t Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask)
 {
 	// remember current invert mask
 	_invert_mask = invertmask;
@@ -117,6 +122,8 @@ void Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask
 
 	// init outputs 
 	register_write(PCA9557_OUT_PORT_REG, _out_data);
+	
+	return 0;
 }
 
 /*

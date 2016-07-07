@@ -175,13 +175,21 @@ void setup(void)
 	
 	Serial.println("Ready to init coreJ2,3,4");
 	
+	uint8_t init_flag=0;
 	// outmask, outdata, inputinvert
-	coreJ2.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
-	coreJ3.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
-	coreJ4.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
+	init_flag += coreJ2.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
+	init_flag += coreJ3.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
+	init_flag += coreJ4.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
 	// FETs don't have clocks to downstream devices
 	// set all as outputs, all outputs off/low, no input inversion (none are inputs anyway)
-	coreFET.init(0xFF, 0x00, 0x00);
+	init_flag += coreFET.init(0xFF, 0x00, 0x00);
+	
+	// flag should be 0 if no errors
+	if (init_flag) 
+	{
+		Serial.print("Init error on core I2C devices: 0x");
+		Serial.println(init_flag, HEX);
+	}
 
 	Serial.print(" Interval is ");
 	Serial.print(dtime/1000);
