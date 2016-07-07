@@ -93,11 +93,12 @@ uint16_t dtime = 1000;  // delay in loop
  */
 #define INMASK (SDIN)
 
-Systronix_PCA9557 coreJ2(I2C_J2);
-Systronix_PCA9557 coreJ3(I2C_J3);
-Systronix_PCA9557 coreJ4(I2C_J4);
+// Now these are just declared but no class has been instantiated yet
+Systronix_PCA9557 coreJ2;
+Systronix_PCA9557 coreJ3;
+Systronix_PCA9557 coreJ4;
 
-Systronix_PCA9557 coreFET(I2C_FET);
+Systronix_PCA9557 coreFET;
 
 uint8_t periph_rst = 22;	// peripheral reset asserted LOW to PCA9557, etc on board
 uint8_t ether_rst = 8;		// Wiznet module reset LOW
@@ -120,9 +121,18 @@ void setup(void)
 	
 	digitalWrite(periph_rst, HIGH);		// resets not asserted
 	digitalWrite(ether_rst, HIGH);
+	
+	// now get an instance at the specific I2C address
+	coreJ2.setup(I2C_J2);
+	coreJ3.setup(I2C_J3);
+	coreJ4.setup(I2C_J4);
+	coreFET.setup(I2C_FET);
 
 	Serial.print("SALT2 J2 I2C Register Test Code at 0x");
 	Serial.println(coreJ2.BaseAddr, HEX);
+	
+	Serial.print("SALT2 J3 I2C Register Test Code at 0x");
+	Serial.println(coreJ3.BaseAddr, HEX);
 
 	/**
 	 *  Serial1 is a proprietary LCD and cap touch keypad

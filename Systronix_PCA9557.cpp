@@ -65,7 +65,7 @@ Compiler has major whines if called as shown in the online Wire reference.
 	@todo	Test base address for legal range 0x18..0x1F
 */
 /**************************************************************************/
-Systronix_PCA9557::Systronix_PCA9557(uint8_t base)
+void Systronix_PCA9557::setup(uint8_t base)
 {
 	_base = base;
 	BaseAddr = base;

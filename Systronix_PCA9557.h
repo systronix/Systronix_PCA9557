@@ -87,7 +87,7 @@ class Systronix_PCA9557
 		};
    
 	public:
-		Systronix_PCA9557(uint8_t base);		// constructor
+		void setup(uint8_t base);		// constructor
 		void begin(void);	// joins I2C as master
 		void init(uint8_t out_mask, uint8_t out_data, uint8_t inp_invert);	// sets regs
 		uint8_t control_write (uint8_t data);
