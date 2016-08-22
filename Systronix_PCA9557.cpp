@@ -66,16 +66,17 @@ Compiler has major whines if called as shown in the online Wire reference.
 */
 /**************************************************************************/
 void Systronix_PCA9557::setup(uint8_t base)
-{
+	{
 	_base = base;
 	BaseAddr = base;
 //	static data _data;		// instance of the data struct
 //	_data.address = _base;	// struct
 	_inp_data = 0;
-	_out_data = 0;
-	_invert_mask = 0;
-
-}
+	_out_reg = 0;
+	_invert_reg = 0xF0;
+	_config_reg = 0xFF;
+	_control_reg = 0xFF;
+	}
 
 /**************************************************************************/
 /*!
@@ -85,13 +86,15 @@ void Systronix_PCA9557::setup(uint8_t base)
 */
 /**************************************************************************/
 void Systronix_PCA9557::begin(void)
-{
+	{
 	Wire.begin();	// join I2C as master
 	
 	// @TODO add default read first thing to see if it is the control reg
 	// but even if it is, is it any use? How would we know what to expect?
-}
+	}
 
+
+//---------------------------< I N I T >----------------------------------------------------------------------
 /**
  *  @brief Initialize the 9557 to a given state. Can be called as often as needed.
  *  
@@ -105,27 +108,68 @@ void Systronix_PCA9557::begin(void)
  *  
  *  @TODO add actual verification that init could talk to the hardware
  */
-uint8_t Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertmask)
-{
-	// remember current invert mask
-	_invert_mask = invertmask;
-	// remember our current data output
-	_out_data = output;
-
-	// clear pin dir reg bits to 0 for all outputs
-	// datasheet calls this config register
-	// 0 bit = that bit is output
-	register_write(PCA9557_CONFIG_REG, ~outmask);
-
-	// input read bits to be inverted if the reg bit is set, 0 = not inverted
-	register_write(PCA9557_INP_INVERT_REG, _invert_mask);
-
-	// init outputs 
-	register_write(PCA9557_OUT_PORT_REG, _out_data);
+uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t invert_mask)
+	{
+	uint8_t ret_val = SUCCESS;
 	
-	return 0;
-}
+	Wire.beginTransmission (_base);						// see if the device is communicating by writing to control register
+	Wire.write (PCA9557_INP_PORT_REG);					// write returns # of bytes written
+	if (Wire.endTransmission())							// returns 0 if no error
+		{
+		control.exists = false;
+		return FAIL;
+		}
+	
+	control.exists = true;
 
+	ret_val = register_write(PCA9557_CONFIG_REG, ~config_reg);			// clear pin dir reg bits to 0 for all outputs
+	ret_val |= register_write(PCA9557_INP_INVERT_REG, invert_mask);		// 1 = input read bits inverted, 0 = not inverted
+	ret_val |= register_write(PCA9557_OUT_PORT_REG, output);			// init outputs
+
+	if (ret_val)
+		return FAIL;
+	
+	return ret_val;
+	}
+
+//---------------------------< T A L L Y _ E R R O R S >------------------------------------------------------
+//
+// Here we tally errors.  This does not answer the 'what to do in the event of these errors' question; it just
+// counts them.  If the device does not ack the address portion of a transaction or if we get a timeout error,
+// exists is set to false.  We assume here that the timeout error is really an indication that the automatic
+// reset feature of the i2c_t3 library failed to reset the device in which case, the device no longer 'exists'
+// for whatever reason.
+//
+
+void Systronix_PCA9557::tally_errors (uint8_t error)
+	{
+	switch (error)
+		{
+		case 0:					// Wire.write failed to write all of the data to tx_buffer
+			control.incomplete_write_count ++;
+			break;
+		case 1:					// data too long from endTransmission() (rx/tx buffers are 259 bytes - slave addr + 2 cmd bytes + 256 data)
+		case 8:					// buffer overflow from call to status() (read - transaction never started)
+			control.data_len_error_count ++;
+			break;
+		case 2:					// slave did not ack address (write)
+		case 5:					// from call to status() (read)
+			control.rcv_addr_nack_count ++;
+			control.exists = false;
+			break;
+		case 3:					// slave did not ack data (write)
+		case 6:					// from call to status() (read)
+			control.rcv_data_nack_count ++;
+			break;
+		case 4:					// arbitration lost (write) or timeout (read/write) or auto-reset failed
+		case 7:					// arbitration lost from call to status() (read)
+			control.other_error_count ++;
+			control.exists=false;
+		}
+	}
+
+
+//---------------------------< C O N T R O L _ W R I T E >----------------------------------------------------
 /*
 	Write to the control register. This is the register accessed
 	after the 9557 receives a valid slave address and ACKs it.
@@ -157,19 +201,34 @@ uint8_t Systronix_PCA9557::init(uint8_t outmask, uint8_t output, uint8_t invertm
 
 	returns # of bytes written which should be 1, 2 if error?
  */
+
 uint8_t Systronix_PCA9557::control_write (uint8_t data)
-{
-	uint8_t b = 0;
-	 Wire.beginTransmission(_base);
+	{
+	if (!control.exists)								// exit immediately if device does not exist
+		return ABSENT;
 
-	 // returns # of bytes written
-	 b = Wire.write(data);
-	 // returns 0 if no error
-	 b+= Wire.endTransmission();
+	Wire.beginTransmission (_base);
+	control.ret_val = Wire.write (data);				// returns # of bytes written
+	if (1 != control.ret_val)
+		{
+		control.ret_val = 0;
+		tally_errors (control.ret_val);
+		return FAIL;
+		}
 
-	return b;
-}
+	control.ret_val = Wire.endTransmission ();
+  	if (SUCCESS != control.ret_val)
+		{
+		tally_errors (control.ret_val);					// increment the appropriate counter
+		return FAIL;									// calling function decides what to do with the error
+		}
 
+	_control_reg = data;								// remember where the control register is pointing
+	return SUCCESS;
+	}
+
+
+//---------------------------< R E G I S T E R _ W R I T E >--------------------------------------------------
 /**
  * Write data to the register at location 'reg'
  *
@@ -179,56 +238,127 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
  *
  * @TODO check reg for valid range
  **/
-uint8_t Systronix_PCA9557::register_write (uint8_t reg, uint8_t data)
-{
-	uint8_t b = 0;
-	
-	if (PCA9557_OUT_PORT_REG == reg)
+
+ uint8_t Systronix_PCA9557::register_write (uint8_t reg, uint8_t data)
 	{
-		_out_data = data;	// update our remembered output reg value
+	if (!control.exists)								// exit immediately if device does not exist
+		return ABSENT;
+
+	Wire.beginTransmission (_base);
+	control.ret_val = Wire.write (reg);					// write control register; only 2 lsbs matter
+	control.ret_val += Wire.write (data);				// and write the data to the tx_buffer
+	if (2 != control.ret_val)
+		{
+		control.ret_val = 0;
+		tally_errors (control.ret_val);
+		return FAIL;
+		}
+
+	control.ret_val = Wire.endTransmission();
+  	if (SUCCESS != control.ret_val)
+		{
+		tally_errors (control.ret_val);					// increment the appropriate counter
+		return FAIL;									// calling function decides what to do with the error
+		}
+
+	_control_reg = reg;									// remember where the control register is pointing
+	if (PCA9557_OUT_PORT_REG == reg)					// update our remembered reg values
+		_out_reg = data;
+	if (PCA9557_INP_INVERT_REG == reg)
+		_invert_reg = data;
+	if (PCA9557_CONFIG_REG == reg)
+		_config_reg = data;
+
+	return SUCCESS;
 	}
-	
-	Wire.beginTransmission(_base);
-	// write data to control register only 2 lsbs matter
-	// returns # of bytes written
-	b = Wire.write(reg);
-	b+= Wire.write(data);
 
-	// returns 0 if no error
-	b+= Wire.endTransmission();
 
-	return b;
-}
-
+//---------------------------< D E F A U L T _ R E A D >------------------------------------------------------
 /**
  * Read a byte from whatever register is currently pointed to by the control register
  *
  * Prints an error message if there was not a byte ready from the I2C device
  */
-uint8_t Systronix_PCA9557::default_read ()
-{
-	byte b=0;
-	uint8_t recvd = 0xFF;	// init with error value
-	b = Wire.requestFrom(_base, 1, true);
+//
+// THIS FUNCTION DEPRECATED - except by printing to the serial monitor there is no good way of notifying the
+// calling function that the read was or was not successful.
+//
 
-	if (1 != b)
+uint8_t Systronix_PCA9557::default_read (void)
 	{
-		Serial.print(" Error I2C read didn't return 1 but ");
-		Serial.println(b);
-	}
-	recvd = Wire.read();
-	return recvd;
-}
+	uint8_t recvd = 0xFF;	// init with error value; 0xFF is not an illegal value
 
+	if (!control.exists)								// exit immediately if device does not exist
+		return ABSENT;
+
+	control.ret_val = Wire.requestFrom(_base, 1, true);
+
+	if (1 != control.ret_val)
+		{
+		control.ret_val = Wire.status();				// to get error value
+		tally_errors (control.ret_val);					// increment the appropriate counter
+
+		Serial.print(" Error I2C read didn't return 1 but ");
+		Serial.println (control.ret_val);
+		}
+
+	recvd = Wire.read();	// if there was an error this assignment is undefined
+
+	if (PCA9557_INP_PORT_REG == _control_reg)			// update our remembered reg value
+		_inp_data = recvd;
+	if (PCA9557_OUT_PORT_REG == _control_reg)
+		_out_reg = recvd;
+	if (PCA9557_INP_INVERT_REG == _control_reg)
+		_invert_reg = recvd;
+	if (PCA9557_CONFIG_REG == _control_reg)
+		_config_reg = recvd;
+
+	return recvd;
+	}
+
+
+//---------------------------< D E F A U L T _ R E A D >------------------------------------------------------
+//
+// Read a byte from whatever register is currently pointed to by the control register
+//
+
+uint8_t Systronix_PCA9557::default_read (uint8_t* data_ptr)
+	{
+	if (!control.exists)								// exit immediately if device does not exist
+		return ABSENT;
+
+	if (1 != Wire.requestFrom (_base, 1, I2C_STOP))
+		{
+		control.ret_val = Wire.status();				// to get error value
+		tally_errors (control.ret_val);					// increment the appropriate counter
+		return FAIL;
+		}
+
+	*data_ptr = Wire.read();
+
+	if (PCA9557_INP_PORT_REG == _control_reg)			// update our remembered reg value
+		_inp_data = *data_ptr;
+	if (PCA9557_OUT_PORT_REG == _control_reg)
+		_out_reg = *data_ptr;
+	if (PCA9557_INP_INVERT_REG == _control_reg)
+		_invert_reg = *data_ptr;
+	if (PCA9557_CONFIG_REG == _control_reg)
+		_config_reg = *data_ptr;
+
+	return SUCCESS;
+	}
+
+ 
+ //--------------------------< P I N _ P U L S E >------------------------------------------------------------
  /**
  * Pulse pin(s) from idle state to active state and back to idle.
- * If idle is high then they will pulse low; idle low will pulse high
+ * If idle is high then will pulse low; idle low will pulse high
  * Leave with pin(s) in idle state.
  * Example: 
  * pin_pulse (0xFF, true) will pulse ALL pins H-L-H; 
  * 0x02 will pulse output 1
  *
- * This only actually drives pins defined as outputs in the config register
+ * This only actually drives pins defined as outputs in the configuration register
  *  
  *  Note this only changes the state of the pins in pin_mask. Other outputs
  *  are tracked in a private variable and their state is unchanged.
@@ -241,45 +371,35 @@ uint8_t Systronix_PCA9557::default_read ()
  * @param pin [0..0xFF] the device output pin(s) you want to pulse
  * @param idle_high if true otherwise will idle low
  **/
+
 uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
-{
-	uint8_t b = 0;
+	{
+	uint8_t		out_val = _out_reg;						// take a copy in case one or both writes fail
 	
-#if 0 < _DEBUG
-	Serial.print("pin_mask=0x"); Serial.println(pin_mask, HEX);
-#endif
+	if (!control.exists)								// exit immediately if device does not exist
+		return ABSENT;
 
 	if (idle_high)
-	{
-		_out_data &= ((~pin_mask) & 0x0FF);	// clear outputs to be pulsed low
-	}
+		out_val &= ~(pin_mask);							// clear outputs to be pulsed low
 	else
-	{
-		_out_data |= (pin_mask);	// set outputs to be pulsed	high	
-	}
-#if 0 < _DEBUG
-	Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);
-#endif
-	// pulse outputs to non-idle state
-	register_write(PCA9557_OUT_PORT_REG, _out_data);
+		out_val |= (pin_mask);							// set outputs to be pulsed	high	
+
+	if (register_write (PCA9557_OUT_PORT_REG, out_val))	// pulse outputs to non-idle state
+		return FAIL;
 
 	if (idle_high)
-	{
-		_out_data |= (pin_mask);	// set outputs to be idled high
-	}
+		out_val |= (pin_mask);							// set outputs to be idled high
 	else
-	{
-		_out_data &= ((~pin_mask) & 0x0FF);	// clr outputs to be idled low		
-	}
-#if 0 < _DEBUG
-	Serial.print("pulse out_data=0x"); Serial.println(_out_data, HEX);
-#endif
-	// restore outputs to idle state
-	register_write(PCA9557_OUT_PORT_REG, _out_data);
+		out_val &= ~(pin_mask);							// clr outputs to be idled low		
 	
-	return b;
-}
+	if (register_write(PCA9557_OUT_PORT_REG, out_val))	// restore outputs to idle state
+		return FAIL;
 
+	return SUCCESS;
+	}
+
+
+//---------------------------< P I N _ D R I V E >------------------------------------------------------------
  /**
  * Drive pin(s) to a high or low voltage level
  * If boolean high is true they will be driven to a high level.
@@ -300,46 +420,70 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
  * @param pin [0..0xFF] the device output pin(s) you want to drive to new state
  * @param high if true sets pin(s) high otherwise will drive to low level
  **/
+
 uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
-{
-	uint8_t b = 0;
-	
-#if 0 < _DEBUG
-	Serial.print("drive pin_mask=0x"); Serial.println(pin_mask, HEX);
-#endif
+	{
+	uint8_t		out_val = _out_reg;						// take a copy in case the write fails
+
+	if (!control.exists)								// exit immediately if device does not exist
+		return ABSENT;
 
 	if (high)
-	{
-		_out_data |= (pin_mask);	// set outputs to be driven	high
-	}
+		out_val |= (pin_mask);							// set outputs to be driven	high
 	else
-	{
-		_out_data &= ((~pin_mask) & 0x0FF);	// clear outputs to be driven low
-			
-	}
-	// drive output(s) to new state
-#if 0 < _DEBUG
-	Serial.print("drive out_data=0x"); Serial.println(_out_data, HEX);
-#endif
-	register_write(PCA9557_OUT_PORT_REG, _out_data);
-	
-	return b;
-}
+		out_val &= ~(pin_mask);							// clear outputs to be driven low
 
+	if (register_write (PCA9557_OUT_PORT_REG, out_val))		// drive output(s) to new state
+		return FAIL;
+	return SUCCESS;
+	}
+
+
+//---------------------------< I N P U T _ R E A D >----------------------------------------------------------
 /**
  *  Read the input register 0x00 and return its value
  *  
  *  TODO optionally filter off output bits?
  *  
  */
+//
+// THIS FUNCTION DEPRECATED - this function has no good way of notifying the calling function that the read
+// was or was not successful.
+//
+
 uint8_t Systronix_PCA9557::input_read ()
-{
+	{
 	uint8_t data_read;
+	if (!control.exists)								// exit immediately if device does not exist
+		return ABSENT;
+
 	control_write (PCA9557_INP_PORT_REG);
 	data_read = default_read();
 	return data_read;
-}
+	}
 
+
+//---------------------------< I N P U T _ R E A D >----------------------------------------------------------
+//
+// Read the input register 0x00 and return its value
+// TODO: optionally filter off output bits?
+//
+
+uint8_t Systronix_PCA9557::input_read (uint8_t* data_ptr)
+	{
+	if (!control.exists)								// exit immediately if device does not exist
+		return ABSENT;
+
+	if (control_write (PCA9557_INP_PORT_REG))
+		return FAIL;
+	
+	if (default_read (data_ptr))
+		return FAIL;
+	return SUCCESS;
+	}
+
+
+//---------------------------< O U T P U T _ R E A D >--------------------------------------------------------
 /**
  * Read the output register
  *  
@@ -350,19 +494,44 @@ uint8_t Systronix_PCA9557::input_read ()
  * Read the input port to read the actual value on all device I/O pins, 
  * including any which are outputs.
  */
+//
+// THIS FUNCTION DEPRECATED - this function has no good way of notifying the calling function that the read
+// was or was not successful.
+//
+
 uint8_t Systronix_PCA9557::output_read ()
-{
+	{
 	uint8_t data_read;
+	if (!control.exists)								// exit immediately if device does not exist
+		return ABSENT;
+
 	control_write (PCA9557_OUT_PORT_REG);
 	data_read = default_read();
 	return data_read;
-}
+	}
 
 
+//---------------------------< O U T P U T _ R E A D >--------------------------------------------------------
+/**
+ * Read the output register
+ *  
+ * Reading this reg returns the value of the internal "output register", 
+ * NOT the actual device pin value. So reading this only confirms its setting.
+ * Only device pins set as outputs in the PCA9557_CONFIG_REG will  
+ * have the output register's pin value driven to its external device pin.
+ * Read the input port to read the actual value on all device I/O pins, 
+ * including any which are outputs.
+ */
 
- 
- 
- 
- 
- 
- 
+uint8_t Systronix_PCA9557::output_read (uint8_t* data_ptr)
+	{
+	if (!control.exists)								// exit immediately if device does not exist
+		return ABSENT;
+
+	if (control_write (PCA9557_OUT_PORT_REG))
+		return FAIL;
+
+	if (default_read(data_ptr))
+		return FAIL;
+	return SUCCESS;
+	}

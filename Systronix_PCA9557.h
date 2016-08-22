@@ -22,6 +22,11 @@
 #include <Wire.h>	// for AVR I2C library
 #endif
 
+#define		SUCCESS	0
+#define		FAIL	0xFF
+#define		ABSENT	0xFD
+
+
 /*--------------------------- COMMAND REGISTER ----------------*/
 
 /**
@@ -57,50 +62,47 @@
 class Systronix_PCA9557
 {
 	protected:
-	   // Instance-specific properties
-		uint8_t _base; // base address, eight possible values
+		// Instance-specific properties; protected so that they aren't trampled by outside forces
+		uint8_t		_base;								// base address, eight possible values
+		uint8_t		_out_reg = 0;						// reset state; or data last written to output port
+		uint8_t		_inp_data;							// undefined at reset; or data last read from the device's i/o pins
+		uint8_t		_invert_reg = 0xF0;					// reset state; or last setting of the invert register
+		uint8_t		_config_reg = 0xFF;					// reset state; or last setting of the configuration (data direction) register
+		uint8_t		_control_reg = 0xFF;				// undefined at reset; or setting last written (any write or some reads)
 		
-		/*
-		 * data being written to output port, this is manipulated to toggle
-		 * bits which drive '595 and '165 shift register clocks downstream
-		 * This is private so instances can't trample it
-		 */
-		uint8_t _out_data = 0;
-
-		/*
-		 * This is a byte of data coming back from '165 shift registers
-		 */
-		uint8_t _inp_data = 0;
-		
-		uint8_t	_invert_mask = 0;
-
-		/**
-		 * Data for one instance of a Systronix_PCA9557 register.
-		 * NOT USING THIS CURRENTLY
-		**/
-		struct data {
-		  uint8_t address;    // I2C address, only the low 7 bits matter
-		  uint8_t command;
-		  uint8_t data;
-		  uint16_t i2c_err_nak;  // total since startup
-		  uint16_t i2c_err_rd;   // total read fails - data not there when expected
-		};
+		void		tally_errors (uint8_t);
    
 	public:
-		void setup(uint8_t base);		// constructor
-		void begin(void);	// joins I2C as master
-		uint8_t init(uint8_t out_mask, uint8_t out_data, uint8_t inp_invert);	// sets regs
-		uint8_t control_write (uint8_t data);
-		uint8_t register_write (uint8_t reg, uint8_t data);
-		uint8_t default_read ();
-		uint8_t BaseAddr;    // I2C address, only the low 7 bits matter
+		struct
+			{
+			uint8_t		ret_val;						// i2c_t3 library return value from most recent transaction
+			uint32_t	incomplete_write_count;			// Wire.write failed to write all of the data to tx_buffer
+			uint32_t	data_len_error_count;			// data too long
+			uint32_t	rcv_addr_nack_count;			// slave did not ack address
+			uint32_t	rcv_data_nack_count;			// slave did not ack data
+			uint32_t	other_error_count;				// arbitration lost or timeout
+			boolean		exists;							// set false after an unsuccessful i2c transaction
+			} control;
 
-		uint8_t pin_pulse (uint8_t pin_mask, boolean idle_high);
-		uint8_t pin_drive (uint8_t pin_mask, boolean high);
+		uint8_t		BaseAddr;    // I2C address, only the low 7 bits matter
+
+		void		setup (uint8_t);					// constructor
+		void		begin (void);						// joins I2C as master
+		uint8_t		init (uint8_t, uint8_t, uint8_t);	// sets regs
 		
-		uint8_t input_read ();
-		uint8_t output_read ();
+		uint8_t		control_write (uint8_t);
+		uint8_t		register_write (uint8_t, uint8_t);
+		uint8_t		default_read (uint8_t*);
+		uint8_t		input_read (uint8_t*);
+		uint8_t		output_read (uint8_t*);
 
+		uint8_t		default_read (void);				// this function deprecated
+		uint8_t		input_read (void);					// this function deprecated
+		uint8_t		output_read (void);					// this function deprecated
+
+		uint8_t		pin_pulse (uint8_t pin_mask, boolean);
+		uint8_t		pin_drive (uint8_t pin_mask, boolean);
+		
 	private:
 
 };
