@@ -56,29 +56,35 @@ uint16_t dtime = 1000;  // delay in loop
 
 // SALT2 Core SDOUT on J2,3,4 pins 1/2 to '595 SDIN of DC and AC boards: 9557 IO7, 0x80 
 // output from 9577 to '595 Din
-#define SDOUT BIT7 	// 0x80
+//#define SDOUT BIT7 	// 0x80
+#define SDOUT 0x80
 
 // SALT2 Core SCLK on J2,3,4 pins 5/6 to '595 and '165 SCLK of DC and AC boards: 9557 IO6, 0x40,
 // serial clock, used by both 595 and 165
-#define SCLK BIT6	// 0x40
+//#define SCLK BIT6	// 0x40
+#define SCLK 0x40
 
 // SALT2 J2,3,4 pins 9/10 to '165 Shift/Load of DC boards: Core SH/LD is 9557 IO5, 0x20
 // SHIFT(H), LOAD(L) only used by DC board '165
-#define SHIFT165 BIT5	// 0x20
+//#define SHIFT165 BIT5	// 0x20
+#define SHIFT165 0x20
 
 // SALT2 Core SDIN on J2,3,4 pins 3/4 from '165 SDOUT of DC boards: 9557 IO4, 0x10 
 // input to 9577 from '165 Qout
-#define SDIN BIT4	// 0x10
+//#define SDIN BIT4	// 0x10
+#define SDIN 0x10
 
 // SALT2 RCLK on J2,3,4 pins 7/8 to DC and AC boards '595 RCLK: 9557 IO3, 0x08 
 // only used by '595, must idle high
-#define RCLK595 BIT3	// 0x08		
+//#define RCLK595 BIT3	// 0x08		
+#define RCLK595 0x08		
 
 // bits 1 and 2 (0x02, 0x04) not connected
 
 // SALT2 yellow LED for J2,3,4 intended to show activity on that port: 9557 IO0, 0x01 
 // open drain, clearing this bit drives output low = LED on
-#define LED BIT0	// 0x01
+//#define LED BIT0	// 0x01
+#define LED 0x01
 
 /**
  *  bit 5 is input; bits 2 and 1 are not connected, Bit 0 is the activity LED for that device
