@@ -113,7 +113,7 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t inve
 	uint8_t ret_val = SUCCESS;
 	
 	Wire.beginTransmission (_base);						// see if the device is communicating by writing to control register
-	Wire.write (PCA9557_INP_PORT_REG);					// write returns # of bytes written
+	Wire.write (PCA9557_INP_PORT_REG);					// write returns # of bytes written to local buffer
 	if (Wire.endTransmission())							// returns 0 if no error
 		{
 		control.exists = false;
