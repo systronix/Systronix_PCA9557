@@ -23,7 +23,7 @@
 #endif
 
 #define		SUCCESS	0
-#define		FAIL	!SUCCESS
+#define		FAIL	(!SUCCESS)
 #define		ABSENT	0xFD
 
 
