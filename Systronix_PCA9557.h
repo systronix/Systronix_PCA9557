@@ -13,7 +13,7 @@
 #ifndef PCA9557_H_
 #define PCA9557_H_
 
-#include<Arduino.h>
+#include <Arduino.h>
 
 // Include the lowest level I2C library
 #if defined (__MK20DX256__) || defined (__MK20DX128__) 	// Teensy 3.1 or 3.2 || Teensy 3.0
@@ -25,6 +25,9 @@
 #define		SUCCESS	0
 #define		FAIL	(~SUCCESS)
 #define		ABSENT	0xFD
+
+#define PCA9557_BASE_MIN 			0x18  // 7-bit address not including R/W bit
+#define PCA9557_BASE_MAX 			0x1F  // 7-bit address not including R/W bit
 
 
 /*--------------------------- COMMAND REGISTER ----------------*/
@@ -69,6 +72,8 @@ class Systronix_PCA9557
 		uint8_t		_invert_reg = 0xF0;					// reset state; or last setting of the invert register
 		uint8_t		_config_reg = 0xFF;					// reset state; or last setting of the configuration (data direction) register
 		uint8_t		_control_reg = 0xFF;				// undefined at reset; or setting last written (any write or some reads)
+		char* 		_wire_name = (char*)"empty";
+		i2c_t3&		_wire = Wire;
 		
 		void		tally_errors (uint8_t);
    
@@ -86,8 +91,13 @@ class Systronix_PCA9557
 
 		uint8_t		BaseAddr;    // I2C address, only the low 7 bits matter
 
-		void		setup (uint8_t);					// constructor
-		void		begin (void);						// joins I2C as master
+		char*		wire_name;	// name of Wire, Wire1, etc in use
+
+					Systronix_PCA9557();		// constructor
+
+		void		setup (uint8_t, i2c_t3 &wire, char* name);					// initialize 
+		void		begin (void);						// joins I2C as default master
+		void 		begin(i2c_pins pins, i2c_rate rate);	// with pins and rate
 		uint8_t		init (uint8_t, uint8_t, uint8_t);	// sets regs
 		
 		uint8_t		control_write (uint8_t);

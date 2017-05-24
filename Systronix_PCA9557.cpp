@@ -55,9 +55,18 @@ Compiler has major whines if called as shown in the online Wire reference.
 ***************************************************************************/
 
 #include <Arduino.h>
-#include "Systronix_PCA9557.h"
+
+#include <Systronix_PCA9557.h>
+
 
 #define _DEBUG 0
+
+// default constructor to keep compiler from whining
+Systronix_PCA9557::Systronix_PCA9557()
+{
+	// _name = "empty";
+	// _wire = Wire;		// default Wire, overridden in setup()
+}
 
 /**************************************************************************/
 /*!
@@ -65,7 +74,7 @@ Compiler has major whines if called as shown in the online Wire reference.
 	@todo	Test base address for legal range 0x18..0x1F
 */
 /**************************************************************************/
-void Systronix_PCA9557::setup(uint8_t base)
+void Systronix_PCA9557::setup(uint8_t base, i2c_t3 &wire, char* name)
 	{
 	_base = base;
 	BaseAddr = base;
@@ -75,7 +84,10 @@ void Systronix_PCA9557::setup(uint8_t base)
 	_out_reg = 0;
 	_invert_reg = 0xF0;
 	_config_reg = 0xFF;
-	_control_reg = 0xFF;
+	_control_reg = 0xFF;	// ??? value greater than 3 makes no sense
+
+	_wire = wire;
+	_wire_name = wire_name = name;		// protected and public
 	}
 
 /**************************************************************************/
@@ -85,13 +97,24 @@ void Systronix_PCA9557::setup(uint8_t base)
 	Wire.begin() doesn't return anything
 */
 /**************************************************************************/
-void Systronix_PCA9557::begin(void)
-	{
-	Wire.begin();	// join I2C as master
-	
+void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
+	{	
 	// @TODO add default read first thing to see if it is the control reg
 	// but even if it is, is it any use? How would we know what to expect?
+	_wire.begin(I2C_MASTER, 0x00, pins, I2C_PULLUP_EXT, rate);	// join I2C as master
+	Serial.printf("begin %s\r\n", _wire_name);
+	_wire.setDefaultTimeout(200000); // 200ms
 	}
+
+// default begin
+void Systronix_PCA9557::begin()
+	{	
+	// @TODO add default read first thing to see if it is the control reg
+	// but even if it is, is it any use? How would we know what to expect?
+	_wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, I2C_RATE_400);	// join I2C as master
+	Serial.printf("default begin %s at 0x%.2X\r\n", _wire_name, _base);
+	_wire.setDefaultTimeout(200000); // 200ms
+	}	
 
 
 //---------------------------< I N I T >----------------------------------------------------------------------
@@ -111,11 +134,14 @@ void Systronix_PCA9557::begin(void)
 uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t invert_mask)
 	{
 	uint8_t ret_val = SUCCESS;
+
+	Serial.printf("Init with %s at base 0x%.2X\r\n", _wire_name, _base);
 	
-	Wire.beginTransmission (_base);						// see if the device is communicating by writing to control register
-	Wire.write (PCA9557_INP_PORT_REG);					// write returns # of bytes written to local buffer
-	if (Wire.endTransmission())							// returns 0 if no error
+	_wire.beginTransmission (_base);						// see if the device is communicating by writing to control register
+	_wire.write (PCA9557_OUT_PORT_REG);					// write returns # of bytes written to local buffer
+	if (_wire.endTransmission())							// returns 0 if no error
 		{
+		Serial.printf("init endTrans fail\r\n");
 		control.exists = false;
 		return FAIL;
 		}
@@ -207,8 +233,8 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 	if (!control.exists)								// exit immediately if device does not exist
 		return ABSENT;
 
-	Wire.beginTransmission (_base);
-	control.ret_val = Wire.write (data);				// returns # of bytes written
+	_wire.beginTransmission (_base);
+	control.ret_val = _wire.write (data);				// returns # of bytes written
 	if (1 != control.ret_val)
 		{
 		control.ret_val = 0;
@@ -216,7 +242,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 		return FAIL;
 		}
 
-	control.ret_val = Wire.endTransmission ();
+	control.ret_val = _wire.endTransmission ();
   	if (SUCCESS != control.ret_val)
 		{
 		tally_errors (control.ret_val);					// increment the appropriate counter
@@ -244,9 +270,9 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 	if (!control.exists)								// exit immediately if device does not exist
 		return ABSENT;
 
-	Wire.beginTransmission (_base);
-	control.ret_val = Wire.write (reg);					// write control register; only 2 lsbs matter
-	control.ret_val += Wire.write (data);				// and write the data to the tx_buffer
+	_wire.beginTransmission (_base);
+	control.ret_val = _wire.write (reg);					// write control register; only 2 lsbs matter
+	control.ret_val += _wire.write (data);				// and write the data to the tx_buffer
 	if (2 != control.ret_val)
 		{
 		control.ret_val = 0;
@@ -254,7 +280,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 		return FAIL;
 		}
 
-	control.ret_val = Wire.endTransmission();
+	control.ret_val = _wire.endTransmission();
   	if (SUCCESS != control.ret_val)
 		{
 		tally_errors (control.ret_val);					// increment the appropriate counter
@@ -291,18 +317,18 @@ uint8_t Systronix_PCA9557::default_read (void)
 	if (!control.exists)								// exit immediately if device does not exist
 		return ABSENT;
 
-	control.ret_val = Wire.requestFrom(_base, 1, true);
+	control.ret_val = _wire.requestFrom(_base, 1, true);
 
 	if (1 != control.ret_val)
 		{
-		control.ret_val = Wire.status();				// to get error value
+		control.ret_val = _wire.status();				// to get error value
 		tally_errors (control.ret_val);					// increment the appropriate counter
 
 		Serial.print(" Error I2C read didn't return 1 but ");
 		Serial.println (control.ret_val);
 		}
 
-	recvd = Wire.read();	// if there was an error this assignment is undefined
+	recvd = _wire.read();	// if there was an error this assignment is undefined
 
 	if (PCA9557_INP_PORT_REG == _control_reg)			// update our remembered reg value
 		_inp_data = recvd;
@@ -327,14 +353,14 @@ uint8_t Systronix_PCA9557::default_read (uint8_t* data_ptr)
 	if (!control.exists)								// exit immediately if device does not exist
 		return ABSENT;
 
-	if (1 != Wire.requestFrom (_base, 1, I2C_STOP))
+	if (1 != _wire.requestFrom (_base, 1, I2C_STOP))
 		{
-		control.ret_val = Wire.status();				// to get error value
+		control.ret_val = _wire.status();				// to get error value
 		tally_errors (control.ret_val);					// increment the appropriate counter
 		return FAIL;
 		}
 
-	*data_ptr = Wire.read();
+	*data_ptr = _wire.read();
 
 	if (PCA9557_INP_PORT_REG == _control_reg)			// update our remembered reg value
 		_inp_data = *data_ptr;

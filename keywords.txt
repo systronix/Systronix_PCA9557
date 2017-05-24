@@ -21,6 +21,8 @@ PCA9557_OUT_PORT_REG	LITERAL1
 PCA9557_INP_INVERT_REG	LITERAL1
 PCA9557_PIN_DIR_REG		LITERAL1
 
+WIREX	LITERAL1
+
 
 // Test of all highlighting values - KEYWORD7 causes IDE problems! Don't use it.
 AKW0	KEYWORD0	// bold gray
