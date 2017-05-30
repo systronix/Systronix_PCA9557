@@ -67,11 +67,11 @@ class Systronix_PCA9557
 	protected:
 		// Instance-specific properties; protected so that they aren't trampled by outside forces
 		uint8_t		_base;								// base address, eight possible values
-		uint8_t		_out_reg = 0;						// reset state; or data last written to output port
+		uint8_t		_out_reg = 0;						// reset state; or data last written to output port			:: initialized in init(); not necessary to do here [wsk]
 		uint8_t		_inp_data;							// undefined at reset; or data last read from the device's i/o pins
-		uint8_t		_invert_reg = 0xF0;					// reset state; or last setting of the invert register
-		uint8_t		_config_reg = 0xFF;					// reset state; or last setting of the configuration (data direction) register
-		uint8_t		_control_reg = 0xFF;				// undefined at reset; or setting last written (any write or some reads)
+		uint8_t		_invert_reg = 0xF0;					// reset state; or last setting of the invert register			:: initialized in init() [wsk]
+		uint8_t		_config_reg = 0xFF;					// reset state; or last setting of the configuration (data direction) register	:: initialized in init() [wsk]
+		uint8_t		_control_reg = 0xFF;				// undefined at reset; or setting last written (any write or some reads)		:: initialized in init() [wsk]
 		char* 		_wire_name = (char*)"empty";
 		i2c_t3&		_wire = Wire;
 		
@@ -89,16 +89,16 @@ class Systronix_PCA9557
 			boolean		exists;							// set false after an unsuccessful i2c transaction
 			} control;
 
-		uint8_t		BaseAddr;    // I2C address, only the low 7 bits matter
+		uint8_t		BaseAddr;    // I2C address, only the low 7 bits matter			 :: what purpose is this supposed to serve? not used in this file [wsk]
 
 		char*		wire_name;	// name of Wire, Wire1, etc in use
 
 					Systronix_PCA9557();		// constructor
 
 		void		setup (uint8_t, i2c_t3 &wire, char* name);					// initialize 
-		void		begin (void);						// joins I2C as default master
+		void		begin (void);							// joins I2C as default master
 		void 		begin(i2c_pins pins, i2c_rate rate);	// with pins and rate
-		uint8_t		init (uint8_t, uint8_t, uint8_t);	// sets regs
+		uint8_t		init (uint8_t, uint8_t, uint8_t);		// sets regs
 		
 		uint8_t		control_write (uint8_t);
 		uint8_t		register_write (uint8_t, uint8_t);
@@ -106,10 +106,12 @@ class Systronix_PCA9557
 		uint8_t		input_read (uint8_t*);
 		uint8_t		output_read (uint8_t*);
 
+		
+//---- TODO: these deprecated since 22 August 2016; delete now?
 		uint8_t		default_read (void);				// this function deprecated
 		uint8_t		input_read (void);					// this function deprecated
 		uint8_t		output_read (void);					// this function deprecated
-
+//----
 		uint8_t		pin_pulse (uint8_t pin_mask, boolean);
 		uint8_t		pin_drive (uint8_t pin_mask, boolean);
 		

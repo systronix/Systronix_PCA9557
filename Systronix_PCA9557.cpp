@@ -77,14 +77,14 @@ Systronix_PCA9557::Systronix_PCA9557()
 void Systronix_PCA9557::setup(uint8_t base, i2c_t3 &wire, char* name)
 	{
 	_base = base;
-	BaseAddr = base;
+	BaseAddr = base;								// :: what purpose is this supposed to serve? not used in this file [wsk]
 //	static data _data;		// instance of the data struct
 //	_data.address = _base;	// struct
 	_inp_data = 0;
 	_out_reg = 0;
 	_invert_reg = 0xF0;
 	_config_reg = 0xFF;
-	_control_reg = 0xFF;	// ??? value greater than 3 makes no sense
+	_control_reg = 0xFF;	// ??? value greater than 3 makes no sense				:: so make it 0x03 then [wsk]
 
 	_wire = wire;
 	_wire_name = wire_name = name;		// protected and public
@@ -107,6 +107,12 @@ void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
 	}
 
 // default begin
+// TODO: resolve this:
+// if this is to be the 'default' then shouldn't it use 'default' library values?  Instead of being this
+// specific, begin(void) defaults to I2C_MASTER, address 0x00, the default pins associated with the i2c bus
+// specified by _wire, I2C_PULLUP_EXT, 100000. Default timeout in the i2c_t3 library is 0 (wait long time);
+// default time out should be set separately (I think this same applies to the 'non-default' begin() above as
+// well). [wsk]
 void Systronix_PCA9557::begin()
 	{	
 	// @TODO add default read first thing to see if it is the control reg
@@ -124,22 +130,36 @@ void Systronix_PCA9557::begin()
  *  Call after a hardware reset, if a reset can be caused programatically.
  *  @param outmask set bits will be outputs. 0xFF makes all pins outputs
  *  @param output value to write to output pins, writing a 1 drives outputs high
- *  except bit 0 which is open drain so drives low. 
+ *  except bit 0 which is open drain so drives low. 							:: no; a '1' allows IO0 to be pulled up; a '0' is drive low [wsk]
  *  @param invertmask applies to pins set as inputs. Setting a mask bit inverts that
  *  input when it is read. After POR this reg is 0xF0
  *  @return 0 if OK, and an error code if not
  *  
  *  @TODO add actual verification that init could talk to the hardware
  */
+ 
+// TODO: Consider renaming the arguments to be: config_reg, out_reg, invert_reg or maybe even : config_reg_val,
+// out_reg_val, invert_reg_val.  Using these names mimics the private variable names _config_reg, _control_reg,
+// _out_reg, _invert_reg.
+//
+// Take the values as they are and write them (without modification) to their appropriate registers.  Values in
+// the call to this function should match datasheet values: a '1' in the config_reg_val argument should have
+// the same meaning as a '1' in the datasheet.  Let the application worry about bit-wise inversion if necessary
+// to the application.
+//
+// init() can talk to the device if register_write() returns SUCCESS; it could not talk to the device if
+// register_write() returns FAIL or ABSENT.
+//
+ 
 uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t invert_mask)
 	{
 	uint8_t ret_val = SUCCESS;
 
 	Serial.printf("Init with %s at base 0x%.2X\r\n", _wire_name, _base);
 	
-	_wire.beginTransmission (_base);						// see if the device is communicating by writing to control register
-	_wire.write (PCA9557_OUT_PORT_REG);					// write returns # of bytes written to local buffer
-	if (_wire.endTransmission())							// returns 0 if no error
+	_wire.beginTransmission (_base);						// see if the device is communicating by writing to control register	:: this is a write to the library [wsk]
+	_wire.write (PCA9557_OUT_PORT_REG);						// write returns # of bytes written to local buffer						:: also a write to the library [wsk]
+	if (_wire.endTransmission())							// returns 0 if no error												:: library writes to the device [wsk]
 		{
 		Serial.printf("init endTrans fail\r\n");
 		control.exists = false;
@@ -148,23 +168,30 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t inve
 	
 	control.exists = true;
 
-	ret_val = register_write(PCA9557_CONFIG_REG, ~config_reg);			// clear pin dir reg bits to 0 for all outputs
+	ret_val = register_write(PCA9557_CONFIG_REG, ~config_reg);			// clear pin dir reg bits to 0 for all outputs				:: TODO: DON'T do this [wsk]
 	ret_val |= register_write(PCA9557_INP_INVERT_REG, invert_mask);		// 1 = input read bits inverted, 0 = not inverted
 	ret_val |= register_write(PCA9557_OUT_PORT_REG, output);			// init outputs
 
-	if (ret_val)
-		return FAIL;
+	if (ret_val)											// if anything other than SUCCESS
+		return FAIL;										// TODO: should return ret_val which can be FAIL or ABSENT
 	
-	return ret_val;
+	return ret_val;											// TODO: return SUCCESS
 	}
 
 //---------------------------< T A L L Y _ E R R O R S >------------------------------------------------------
 //
-// Here we tally errors.  This does not answer the 'what to do in the event of these errors' question; it just
+// Here we tally errors.  This does not answer the what-to-do-in-the-event-of-these-errors question; it just
 // counts them.  If the device does not ack the address portion of a transaction or if we get a timeout error,
 // exists is set to false.  We assume here that the timeout error is really an indication that the automatic
 // reset feature of the i2c_t3 library failed to reset the device in which case, the device no longer 'exists'
 // for whatever reason.
+//
+// TODO: we should decide if the correct thing to do when slave does not ack, or arbitration is lost, or
+// timeout occurs, or auto reset fails (states 2, 5 and 4, 7) is to declare these addresses as non-existent.
+// We need to decide what to do when those conditions occur if we do not declare the device non-existent.
+// When a device is declared non-existent, what do we do then? (this last is more a question for the
+// application than this library).  The questions in this TODO apply equally to other i2c libraries that tally
+// these errors
 //
 
 void Systronix_PCA9557::tally_errors (uint8_t error)
@@ -201,7 +228,7 @@ void Systronix_PCA9557::tally_errors (uint8_t error)
 	after the 9557 receives a valid slave address and ACKs it.
 	The next data written by the master sets the 2 LSBs in the control register.
 	Note that the control register itself does not have a "register address".
-	It can also be written, but how?	
+	It can also be written, but how?											:: did you mean 'read'? [wsk]
 	
 	Only 2 lsbs matter: they act as address to four device I/O registers:
 	00 read-only input port register (writes have no effect)
@@ -225,7 +252,7 @@ void Systronix_PCA9557::tally_errors (uint8_t error)
 	in the control register. It does not then write to or 
 	read from the register which is now addressed.
 
-	returns # of bytes written which should be 1, 2 if error?
+	returns # of bytes written which should be 1, 2 if error?					:: does not; returns SUCCESS, FAIL, or ABSENT [wsk]
  */
 
 uint8_t Systronix_PCA9557::control_write (uint8_t data)
@@ -234,7 +261,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 		return ABSENT;
 
 	_wire.beginTransmission (_base);
-	control.ret_val = _wire.write (data);				// returns # of bytes written
+	control.ret_val = _wire.write (data);				// returns # of bytes written to i2c_t3 buffer
 	if (1 != control.ret_val)
 		{
 		control.ret_val = 0;
@@ -258,7 +285,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 /**
  * Write data to the register at location 'reg'
  *
- * returns # of bytes written which should be 2, 3 if error?
+ * returns # of bytes written which should be 2, 3 if error?					:: does not; returns SUCCESS, FAIL, or ABSENT [wsk]
  *
  * This can be used as a general output byte write function
  *
@@ -271,7 +298,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 		return ABSENT;
 
 	_wire.beginTransmission (_base);
-	control.ret_val = _wire.write (reg);					// write control register; only 2 lsbs matter
+	control.ret_val = _wire.write (reg);				// write control register; only 2 lsbs matter
 	control.ret_val += _wire.write (data);				// and write the data to the tx_buffer
 	if (2 != control.ret_val)
 		{
@@ -308,6 +335,8 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 //
 // THIS FUNCTION DEPRECATED - except by printing to the serial monitor there is no good way of notifying the
 // calling function that the read was or was not successful.
+//
+// TODO: deprecated since 22 August 2016; delete now?
 //
 
 uint8_t Systronix_PCA9557::default_read (void)
@@ -432,8 +461,8 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
  * Leave with pin(s) in new state.
  * Example: 
  * pin_drive (0x02, true) 0x02 will drive output 1 to high level.
- * pin_drive (0xFF, true) will set pins IO7–IO1 high, IO0 will drive active low
- * NOTE: IO0 output IS opposite to all other outputs
+ * pin_drive (0xFF, true) will set pins IO7–IO1 high, IO0 will drive active low		:: IO0, pulled up, not driven low [wsk]
+ * NOTE: IO0 output IS opposite to all other outputs								:: no [wsk]
  *
  * This only actually drives pins defined as outputs in the config register
  * 
@@ -475,6 +504,8 @@ uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
 //
 // THIS FUNCTION DEPRECATED - this function has no good way of notifying the calling function that the read
 // was or was not successful.
+//
+// TODO: deprecated since 22 August 2016; delete now?
 //
 
 uint8_t Systronix_PCA9557::input_read ()
@@ -523,6 +554,8 @@ uint8_t Systronix_PCA9557::input_read (uint8_t* data_ptr)
 //
 // THIS FUNCTION DEPRECATED - this function has no good way of notifying the calling function that the read
 // was or was not successful.
+//
+// TODO: deprecated since 22 August 2016; delete now?
 //
 
 uint8_t Systronix_PCA9557::output_read ()
