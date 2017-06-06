@@ -168,9 +168,9 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t inve
 	
 	control.exists = true;
 
+	ret_val |= register_write(PCA9557_OUT_PORT_REG, output);			// init output reg first so that it is i correct state when config reg written
 	ret_val = register_write(PCA9557_CONFIG_REG, ~config_reg);			// clear pin dir reg bits to 0 for all outputs				:: TODO: DON'T do this [wsk]
 	ret_val |= register_write(PCA9557_INP_INVERT_REG, invert_mask);		// 1 = input read bits inverted, 0 = not inverted
-	ret_val |= register_write(PCA9557_OUT_PORT_REG, output);			// init outputs
 
 	if (ret_val)											// if anything other than SUCCESS
 		return FAIL;										// TODO: should return ret_val which can be FAIL or ABSENT
