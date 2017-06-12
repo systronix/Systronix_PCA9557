@@ -1,13 +1,19 @@
 
-/** ---------- PCA9557_J2 ------------------------
+/** ---------- PCA9557 TEST ALL ------------------------
  *  
- *  Controller must be Teensy 3.1 or 3.2
+ *  Controller must be Teensy 3.2 at least in our SALT board
  *  Copyright 2016 Systronix Inc www.systronix.com
  *  
  *  This code uses the PCA9557 library directly
  *  
  *  The custom SALT2 board is used. It has four PCA9557 at the 
  *  addresses #define below.
+ *
+ * This program blinks LED on output of 9557 so it shows we are
+ * communicating with all of these through our 9557 library
+ * which lets us access 9557 by reference, alkowing one 9557 library
+ * and multiple independent instances of it, and layer our SALT_JX
+ * library on top of that, with no hard-coded addresses or redundant code.
  *  
  *  Other users won't likely have this board, but the code
  *  is still a useful example.
@@ -86,6 +92,8 @@ uint16_t dtime = 1000;  // delay in loop
 //#define LED BIT0	// 0x01
 #define LED 0x01
 
+#define BUZZER 0x02		// SALT 2.1 buzzer on FET 9557, beeps when this output is LOW
+
 /**
  *  bit 5 is input; bits 2 and 1 are not connected, Bit 0 is the activity LED for that device
  *  so this mask has a '1' for every bit which is used as output
@@ -135,41 +143,55 @@ void setup(void)
 	coreFET.setup(I2C_FET);
 
 	Serial.print("SALT2 J2 I2C Register Test Code at 0x");
-	Serial.println(coreJ2.BaseAddr, HEX);
+	Serial.println(coreJ2.base_get(), HEX);
 	
 	Serial.print("SALT2 J3 I2C Register Test Code at 0x");
-	Serial.println(coreJ3.BaseAddr, HEX);
+	Serial.println(coreJ3.base_get(), HEX);
+
+	Serial.print("SALT2 J4 I2C Register Test Code at 0x");
+	Serial.println(coreJ4.base_get(), HEX);	
+
+	Serial.print("SALT2 FET I2C Register Test Code at 0x");
+	Serial.println(coreFET.base_get(), HEX);		
 
 	/**
-	 *  Serial1 is a proprietary LCD and cap touch keypad
+	 *  Serial1 is a proprietary UI LCD and cap touch keypad
 	 */
 	Serial1.begin(9600);			// UI Side 0 = LCD and keypad
 	while((!Serial1) && (millis()<10000));		// wait until serial port is open or timeout
 	Serial.print("Serial1 ready at ");
 	Serial.println(millis());
-	Serial1.println("d");	// clear lcd
+	Serial1.println("r");	// clear lcd
 	Serial1.flush();
 	delay(20);	// for LCD, 5 msec not always enough
 	
-	Serial2.begin(9600);			// UI Side 0 = LCD and keypad
+	Serial2.begin(9600);			// UI Side 1 = LCD and keypad
 	while((!Serial2) && (millis()<10000));		// wait until serial port is open or timeout
+
+	// These functions have a bug in TD 1.29 see forum post by KurtE...
+	// ...https://forum.pjrc.com/threads/32502-Serial2-Alternate-pins-26-and-31
+	// however we still need to specify these pins since we are not using
+	// ... the default RX2,TX2 on 9,10
+	Serial2.setRX (26);
+	Serial2.setTX (31);	
+
 	Serial.print("Serial2 ready at ");
 	Serial.println(millis());
-	Serial2.println("d");	// clear lcd
+	Serial2.println("r");	// clear lcd
 	Serial2.flush();
 	delay(20);	// for LCD, 5 msec not always enough
 	
 	// delay(1000);
 
-	              // 0123456789ABCDEF 
-	Serial1.println("dSALT J2 I2C TestSerial 1");
+	               // 0123456789ABCDEF 
+	Serial1.println("dSALT I2C 9557   TestSerial 1");
 	Serial1.flush();
 	
-		              // 0123456789ABCDEF 
-	Serial2.println("dSALT J2 I2C TestSerial 2");
+		           // 0123456789ABCDEF 
+	Serial2.println("dSALT I2C 9557   TestSerial 2");
 	Serial2.flush();
 
-	Serial.println("Ready to instantiate coreJ2,3,4");
+	Serial.println("Ready to join I2C with coreJ2,3,4");
 	
 	/**
 	* Start, now inits invert and output bit enable, clears outputs
@@ -188,7 +210,7 @@ void setup(void)
 	init_flag += coreJ4.init(OUTMASK, (SCLK | RCLK595 | LED), 0);
 	// FETs don't have clocks to downstream devices
 	// set all as outputs, all outputs off/low, no input inversion (none are inputs anyway)
-	init_flag += coreFET.init(0xFF, 0x00, 0x00);
+	init_flag += coreFET.init(0xFF, BUZZER, 0x00);
 	
 	// flag should be 0 if no errors
 	if (init_flag) 

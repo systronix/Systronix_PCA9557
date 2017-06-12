@@ -72,12 +72,15 @@ Systronix_PCA9557::Systronix_PCA9557()
 /*!
     @brief  Instantiates a new PCA9557 class to use the given base address
 	@todo	Test base address for legal range 0x18..0x1F
+
+	@param &wire pointer to the i2c_t3 object Wire, Wire1, Wire2, Wire3
+	@param name is a string such as Wire, Wire1, etc used for debug output, 
+		also saved as wire_name
 */
 /**************************************************************************/
 void Systronix_PCA9557::setup(uint8_t base, i2c_t3 &wire, char* name)
 	{
 	_base = base;
-	BaseAddr = base;								// :: what purpose is this supposed to serve? not used in this file [wsk]
 //	static data _data;		// instance of the data struct
 //	_data.address = _base;	// struct
 	_inp_data = 0;
@@ -89,6 +92,26 @@ void Systronix_PCA9557::setup(uint8_t base, i2c_t3 &wire, char* name)
 	_wire = wire;
 	_wire_name = wire_name = name;		// protected and public
 	}
+
+/**
+	Default setup, where itc_t3 &wire is Wire and the name is "Wire"
+	This makes the library backwards compatible with older applications.
+*/
+void Systronix_PCA9557::setup(uint8_t base)
+	{
+	_base = base;
+//	static data _data;		// instance of the data struct
+//	_data.address = _base;	// struct
+	_inp_data = 0;
+	_out_reg = 0;
+	_invert_reg = 0xF0;
+	_config_reg = 0xFF;
+	_control_reg = 0x03;	// ??? value greater than 3 makes no sense
+
+	_wire = Wire;
+	_wire_name = wire_name = (char*) "Wire";		// protected and public
+	}
+
 
 /**************************************************************************/
 /*!
@@ -105,6 +128,14 @@ void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
 	Serial.printf("begin %s\r\n", _wire_name);
 	_wire.setDefaultTimeout(200000); // 200ms
 	}
+
+/**
+	return the I2C base address for this instance
+*/
+uint8_t Systronix_PCA9557::base_get(void)
+{
+	return _base;
+}
 
 // default begin
 // TODO: resolve this:
@@ -155,13 +186,13 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t inve
 	{
 	uint8_t ret_val = SUCCESS;
 
-	Serial.printf("Init with %s at base 0x%.2X\r\n", _wire_name, _base);
+	Serial.printf("Lib init %s at base 0x%.2X\r\n", _wire_name, _base);
 	
 	_wire.beginTransmission (_base);						// see if the device is communicating by writing to control register	:: this is a write to the library [wsk]
 	_wire.write (PCA9557_OUT_PORT_REG);						// write returns # of bytes written to local buffer						:: also a write to the library [wsk]
 	if (_wire.endTransmission())							// returns 0 if no error												:: library writes to the device [wsk]
 		{
-		Serial.printf("init endTrans fail\r\n");
+		Serial.printf("Lib init endTrans fail\r\n");
 		control.exists = false;
 		return FAIL;
 		}
@@ -169,7 +200,7 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t inve
 	control.exists = true;
 
 	ret_val |= register_write(PCA9557_OUT_PORT_REG, output);			// init output reg first so that it is i correct state when config reg written
-	ret_val = register_write(PCA9557_CONFIG_REG, ~config_reg);			// clear pin dir reg bits to 0 for all outputs				:: TODO: DON'T do this [wsk]
+	ret_val |= register_write(PCA9557_CONFIG_REG, ~config_reg);			// clear pin dir reg bits to 0 for all outputs				:: TODO: DON'T do this [wsk] ??? Why not |= [bab]
 	ret_val |= register_write(PCA9557_INP_INVERT_REG, invert_mask);		// 1 = input read bits inverted, 0 = not inverted
 
 	if (ret_val)											// if anything other than SUCCESS
@@ -286,6 +317,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
  * Write data to the register at location 'reg'
  *
  * returns # of bytes written which should be 2, 3 if error?					:: does not; returns SUCCESS, FAIL, or ABSENT [wsk]
+  return of 0 == SUCCESS
  *
  * This can be used as a general output byte write function
  *
@@ -302,8 +334,8 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 	control.ret_val += _wire.write (data);				// and write the data to the tx_buffer
 	if (2 != control.ret_val)
 		{
-		control.ret_val = 0;
-		tally_errors (control.ret_val);
+		control.ret_val = 0;							// what? now a value of 0 is an error, not SUCCESS?
+		tally_errors (control.ret_val);					// why can't we be consistent on what return==0 means? [bab]
 		return FAIL;
 		}
 
@@ -316,7 +348,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 
 	_control_reg = reg;									// remember where the control register is pointing
 	if (PCA9557_OUT_PORT_REG == reg)					// update our remembered reg values
-		_out_reg = data;
+		_out_reg = data;								// these won't be updated if we already returned due to FAIL [bab]
 	if (PCA9557_INP_INVERT_REG == reg)
 		_invert_reg = data;
 	if (PCA9557_CONFIG_REG == reg)

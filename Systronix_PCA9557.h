@@ -89,13 +89,77 @@ class Systronix_PCA9557
 			boolean		exists;							// set false after an unsuccessful i2c transaction
 			} control;
 
-		uint8_t		BaseAddr;    // I2C address, only the low 7 bits matter			 :: what purpose is this supposed to serve? not used in this file [wsk]
+
+		/**
+		Array of Wire.status() extended return code strings, 11 as of 29Dec16 i2c_t3 release
+		index into this with the value of status.
+		There is an array of constant text: const status_text[11]
+		char * makes the decl an array of char pointers, each pointing to constant text
+		the first const means that array of char pointers can't change.
+		We can access this with a const char * text_ptr which means point to char(s) which happen to be const
+		Note each literal string has a null terminator added by C compiler.
+		See NAP_UI_key_defs.h for similar
+		*/
+#if defined I2C_T3_H 		
+		const char * const status_text[11] =
+		{
+			"I2C_WAITING", 
+			"I2C_SENDING", 
+			"I2C_SEND_ADDR",
+			"I2C_RECEIVING",
+			"I2C_TIMEOUT", 
+			"I2C_ADDR_NAK", 
+			"I2C_DATA_NAK",
+			"I2C_ARB_LOST",
+			"I2C_BUF_OVF",
+			"I2C_SLAVE_TX", 
+			"I2C_SLAVE_RX"
+		};
+#else
+		// Wire.h returns from endTransmission
+		// 0=success, 1=data too long, 2=recv addr NACK, 3=recv data NACK, 4=other error
+		const char * const status_text[5] =
+		{
+			"Success",		// TODO not an error, we should not tally it! 
+			"Data length",
+			"Receive addr NAK", 
+			"Receive data NAK",
+			"Other error"
+		};		
+#endif
+
+		/** error stucture
+		Note that this can be written by a library user, so it could be cleared if desired as part of 
+		some error recovery or logging operation. It could also be inadvertenly erased...
+
+		successful_count overflowed at 258.5 hours. Making this a 64-bit unsigned (long long) allows
+		for 2**32 times as many hours. So not likely to ever wrap wrap.
+		*/
+		struct
+			{
+			uint8_t		ret_val;						// i2c_t3 library return value from most recent transaction
+			uint32_t	incomplete_write_count;			// Wire.write failed to write all of the data to tx_buffer
+			uint32_t	data_len_error_count;			// data too long
+			uint32_t	timeout_count;					// slave response took too long
+			uint32_t	rcv_addr_nack_count;			// slave did not ack address
+			uint32_t	rcv_data_nack_count;			// slave did not ack data
+			uint32_t	arbitration_lost_count;
+			uint32_t	buffer_overflow_count;
+			uint32_t	other_error_count;				// arbitration lost or timeout
+			uint32_t	unknown_error_count;
+			uint32_t	data_value_error_count;			// I2C message OK but value read was wrong; how can this be?
+			uint64_t	total_error_count;				// quick check to see if any have happened
+			uint64_t	successful_count;				// successful access cycle
+			} error;
+
+		 
 
 		char*		wire_name;	// name of Wire, Wire1, etc in use
 
 					Systronix_PCA9557();		// constructor
 
-		void		setup (uint8_t, i2c_t3 &wire, char* name);					// initialize 
+		void		setup (uint8_t base);		// defaults to Wire net
+		void		setup (uint8_t base, i2c_t3 &wire, char* name);					// initialize 
 		void		begin (void);							// joins I2C as default master
 		void 		begin(i2c_pins pins, i2c_rate rate);	// with pins and rate
 		uint8_t		init (uint8_t, uint8_t, uint8_t);		// sets regs
@@ -105,6 +169,7 @@ class Systronix_PCA9557
 		uint8_t		default_read (uint8_t*);
 		uint8_t		input_read (uint8_t*);
 		uint8_t		output_read (uint8_t*);
+		uint8_t		base_get(void);
 
 		
 //---- TODO: these deprecated since 22 August 2016; delete now?
