@@ -125,7 +125,7 @@ void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
 	// @TODO add default read first thing to see if it is the control reg
 	// but even if it is, is it any use? How would we know what to expect?
 	_wire.begin(I2C_MASTER, 0x00, pins, I2C_PULLUP_EXT, rate);	// join I2C as master
-	Serial.printf("begin %s\r\n", _wire_name);
+	Serial.printf("Lib begin %s\r\n", _wire_name);
 	_wire.setDefaultTimeout(200000); // 200ms
 	}
 
@@ -149,7 +149,7 @@ void Systronix_PCA9557::begin()
 	// @TODO add default read first thing to see if it is the control reg
 	// but even if it is, is it any use? How would we know what to expect?
 	_wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, I2C_RATE_400);	// join I2C as master
-	Serial.printf("default begin %s at 0x%.2X\r\n", _wire_name, _base);
+	Serial.printf("Lib default begin %s at 0x%.2X\r\n", _wire_name, _base);
 	_wire.setDefaultTimeout(200000); // 200ms
 	}	
 
@@ -185,14 +185,17 @@ void Systronix_PCA9557::begin()
 uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t invert_mask)
 	{
 	uint8_t ret_val = SUCCESS;
+	uint8_t ret_cnt = 0;
 
 	Serial.printf("Lib init %s at base 0x%.2X\r\n", _wire_name, _base);
 	
-	_wire.beginTransmission (_base);						// see if the device is communicating by writing to control register	:: this is a write to the library [wsk]
-	_wire.write (PCA9557_OUT_PORT_REG);						// write returns # of bytes written to local buffer						:: also a write to the library [wsk]
-	if (_wire.endTransmission())							// returns 0 if no error												:: library writes to the device [wsk]
+	_wire.beginTransmission (_base);				// see if the device is communicating by writing to control register	:: this is a write to the library [wsk]
+	ret_cnt += _wire.write (PCA9557_OUT_PORT_REG);			// write returns # of bytes written to local buffer						:: also a write to the library [wsk]
+	Serial.printf("Lib init wrote %u bytes to i2c buffer\r\n", ret_cnt);
+	ret_val = _wire.endTransmission();
+	if (ret_val)							// returns 0 if no error												:: library writes to the device [wsk]
 		{
-		Serial.printf("Lib init endTrans fail\r\n");
+		Serial.printf("Lib init endTrans failed with 0x%.2X\r\n", ret_val);
 		control.exists = false;
 		return FAIL;
 		}

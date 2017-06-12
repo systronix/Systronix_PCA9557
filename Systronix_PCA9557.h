@@ -73,7 +73,7 @@ class Systronix_PCA9557
 		uint8_t		_config_reg = 0xFF;					// reset state; or last setting of the configuration (data direction) register	:: initialized in init() [wsk]
 		uint8_t		_control_reg = 0xFF;				// undefined at reset; or setting last written (any write or some reads)		:: initialized in init() [wsk]
 		char* 		_wire_name = (char*)"empty";
-		i2c_t3&		_wire = Wire;
+		i2c_t3&		_wire = Wire;						// why is this assigned value = Wire? [bab]
 		
 		void		tally_errors (uint8_t);
    
