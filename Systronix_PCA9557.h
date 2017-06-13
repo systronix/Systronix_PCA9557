@@ -68,24 +68,19 @@ class Systronix_PCA9557
 		// Instance-specific properties; protected so that they aren't trampled by outside forces
 		uint8_t		_base;								// base address, eight possible values
 		uint8_t		_out_reg = 0;						// reset state; or data last written to output port			:: initialized in init(); not necessary to do here [wsk]
-		uint8_t		_inp_data;							// undefined at reset; or data last read from the device's i/o pins
+		uint8_t		_inp_data = 0;						// undefined at reset; or data last read from the device's i/o pins
 		uint8_t		_invert_reg = 0xF0;					// reset state; or last setting of the invert register			:: initialized in init() [wsk]
 		uint8_t		_config_reg = 0xFF;					// reset state; or last setting of the configuration (data direction) register	:: initialized in init() [wsk]
-		uint8_t		_control_reg = 0xFF;				// undefined at reset; or setting last written (any write or some reads)		:: initialized in init() [wsk]
+		uint8_t		_control_reg = 0x03;				// undefined at reset; or setting last written (any write or some reads)		:: initialized in init() [wsk]
 		char* 		_wire_name = (char*)"empty";
-		i2c_t3&		_wire = Wire;						// why is this assigned value = Wire? [bab]
+		i2c_t3		_wire = Wire;						// why is this assigned value = Wire? [bab]
 		
 		void		tally_errors (uint8_t);
    
 	public:
 		struct
 			{
-			uint8_t		ret_val;						// i2c_t3 library return value from most recent transaction
-			uint32_t	incomplete_write_count;			// Wire.write failed to write all of the data to tx_buffer
-			uint32_t	data_len_error_count;			// data too long
-			uint32_t	rcv_addr_nack_count;			// slave did not ack address
-			uint32_t	rcv_data_nack_count;			// slave did not ack data
-			uint32_t	other_error_count;				// arbitration lost or timeout
+			uint8_t		ret_val;						// not clear what this really is
 			boolean		exists;							// set false after an unsuccessful i2c transaction
 			} control;
 
@@ -103,16 +98,16 @@ class Systronix_PCA9557
 #if defined I2C_T3_H 		
 		const char * const status_text[11] =
 		{
-			"I2C_WAITING", 
+			"I2C_WAITING", 		// first four are not errors but status
 			"I2C_SENDING", 
 			"I2C_SEND_ADDR",
 			"I2C_RECEIVING",
-			"I2C_TIMEOUT", 
+			"I2C_TIMEOUT", 		// start of 5 errors, status==4
 			"I2C_ADDR_NAK", 
 			"I2C_DATA_NAK",
 			"I2C_ARB_LOST",
 			"I2C_BUF_OVF",
-			"I2C_SLAVE_TX", 
+			"I2C_SLAVE_TX", 	// slave status; not errors
 			"I2C_SLAVE_RX"
 		};
 #else
@@ -137,7 +132,7 @@ class Systronix_PCA9557
 		*/
 		struct
 			{
-			uint8_t		ret_val;						// i2c_t3 library return value from most recent transaction
+			uint8_t		error_val;						// the most recent error value, not just SUCCESS or FAIL
 			uint32_t	incomplete_write_count;			// Wire.write failed to write all of the data to tx_buffer
 			uint32_t	data_len_error_count;			// data too long
 			uint32_t	timeout_count;					// slave response took too long
@@ -159,9 +154,9 @@ class Systronix_PCA9557
 					Systronix_PCA9557();		// constructor
 
 		void		setup (uint8_t base);		// defaults to Wire net
-		void		setup (uint8_t base, i2c_t3 &wire, char* name);					// initialize 
-		void		begin (void);							// joins I2C as default master
+		void		setup (uint8_t base, i2c_t3 wire, char* name);					// initialize 
 		void 		begin(i2c_pins pins, i2c_rate rate);	// with pins and rate
+		void		begin(void);
 		uint8_t		init (uint8_t, uint8_t, uint8_t);		// sets regs
 		
 		uint8_t		control_write (uint8_t);

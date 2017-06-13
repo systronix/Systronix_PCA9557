@@ -73,22 +73,14 @@ Systronix_PCA9557::Systronix_PCA9557()
     @brief  Instantiates a new PCA9557 class to use the given base address
 	@todo	Test base address for legal range 0x18..0x1F
 
-	@param &wire pointer to the i2c_t3 object Wire, Wire1, Wire2, Wire3
+	@param wire instance of i2c_t3 'object' Wire, Wire1, Wire2, Wire3
 	@param name is a string such as Wire, Wire1, etc used for debug output, 
 		also saved as wire_name
 */
 /**************************************************************************/
-void Systronix_PCA9557::setup(uint8_t base, i2c_t3 &wire, char* name)
+void Systronix_PCA9557::setup(uint8_t base, i2c_t3 wire, char* name)
 	{
 	_base = base;
-//	static data _data;		// instance of the data struct
-//	_data.address = _base;	// struct
-	_inp_data = 0;
-	_out_reg = 0;
-	_invert_reg = 0xF0;
-	_config_reg = 0xFF;
-	_control_reg = 0xFF;	// ??? value greater than 3 makes no sense				:: so make it 0x03 then [wsk]
-
 	_wire = wire;
 	_wire_name = wire_name = name;		// protected and public
 	}
@@ -100,14 +92,6 @@ void Systronix_PCA9557::setup(uint8_t base, i2c_t3 &wire, char* name)
 void Systronix_PCA9557::setup(uint8_t base)
 	{
 	_base = base;
-//	static data _data;		// instance of the data struct
-//	_data.address = _base;	// struct
-	_inp_data = 0;
-	_out_reg = 0;
-	_invert_reg = 0xF0;
-	_config_reg = 0xFF;
-	_control_reg = 0x03;	// ??? value greater than 3 makes no sense
-
 	_wire = Wire;
 	_wire_name = wire_name = (char*) "Wire";		// protected and public
 	}
@@ -118,6 +102,9 @@ void Systronix_PCA9557::setup(uint8_t base)
     @brief  Join the I2C bus as a master, call this once in setup()
 	
 	Wire.begin() doesn't return anything
+
+	There's no (void) version of begin. We want to force ourselves to 
+	explicitly declare which I2C net and speed we are using.
 */
 /**************************************************************************/
 void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
@@ -129,6 +116,18 @@ void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
 	_wire.setDefaultTimeout(200000); // 200ms
 	}
 
+
+/**
+*
+*/
+void Systronix_PCA9557::begin(void)
+	{	
+	// @TODO add default read first thing to see if it is the control reg
+	// but even if it is, is it any use? How would we know what to expect?
+	_wire.begin();	// join I2C as master
+	_wire.setDefaultTimeout(200000); // 200ms
+	}	
+
 /**
 	return the I2C base address for this instance
 */
@@ -137,52 +136,27 @@ uint8_t Systronix_PCA9557::base_get(void)
 	return _base;
 }
 
-// default begin
-// TODO: resolve this:
-// if this is to be the 'default' then shouldn't it use 'default' library values?  Instead of being this
-// specific, begin(void) defaults to I2C_MASTER, address 0x00, the default pins associated with the i2c bus
-// specified by _wire, I2C_PULLUP_EXT, 100000. Default timeout in the i2c_t3 library is 0 (wait long time);
-// default time out should be set separately (I think this same applies to the 'non-default' begin() above as
-// well). [wsk]
-void Systronix_PCA9557::begin()
-	{	
-	// @TODO add default read first thing to see if it is the control reg
-	// but even if it is, is it any use? How would we know what to expect?
-	_wire.begin(I2C_MASTER, 0x00, I2C_PINS_18_19, I2C_PULLUP_EXT, I2C_RATE_400);	// join I2C as master
-	Serial.printf("Lib default begin %s at 0x%.2X\r\n", _wire_name, _base);
-	_wire.setDefaultTimeout(200000); // 200ms
-	}	
-
 
 //---------------------------< I N I T >----------------------------------------------------------------------
 /**
  *  @brief Initialize the 9557 to a given state. Can be called as often as needed.
  *  
  *  Call after a hardware reset, if a reset can be caused programatically.
- *  @param outmask set bits will be outputs. 0xFF makes all pins outputs
- *  @param output value to write to output pins, writing a 1 drives outputs high
- *  except bit 0 which is open drain so drives low. 							:: no; a '1' allows IO0 to be pulled up; a '0' is drive low [wsk]
- *  @param invertmask applies to pins set as inputs. Setting a mask bit inverts that
+ *  @param config_set set bits will be outputs. 0xFF makes all pins outputs
+ * 	Note: the 9557 config reg (which should have been called 'direction reg')
+ *  uses a 1 to indicates an input, 0 an output. We think that's backwards
+ *  so this param gets inverted in the init routine so that 1 bits = outputs.
+ *  This means if you have an output mask of 1's such as 0x0F, you can write
+ *  That mask to the config reg and 0x0F will be outputs.
+ *  @param out_reg value to write to output pins, writing a 1 drives outputs high
+ *  On IO0, open drain, a '1' allows IO0 to be pulled up; a '0' is drive low
+ *  @param invert_reg applies to pins set as inputs. Setting a mask bit inverts that
  *  input when it is read. After POR this reg is 0xF0
  *  @return 0 if OK, and an error code if not
  *  
- *  @TODO add actual verification that init could talk to the hardware
- */
- 
-// TODO: Consider renaming the arguments to be: config_reg, out_reg, invert_reg or maybe even : config_reg_val,
-// out_reg_val, invert_reg_val.  Using these names mimics the private variable names _config_reg, _control_reg,
-// _out_reg, _invert_reg.
-//
-// Take the values as they are and write them (without modification) to their appropriate registers.  Values in
-// the call to this function should match datasheet values: a '1' in the config_reg_val argument should have
-// the same meaning as a '1' in the datasheet.  Let the application worry about bit-wise inversion if necessary
-// to the application.
-//
-// init() can talk to the device if register_write() returns SUCCESS; it could not talk to the device if
-// register_write() returns FAIL or ABSENT.
-//
- 
-uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t invert_mask)
+ *  @TODO maybe take out the inversion of config? To be consistent with the data sheet
+ */ 
+uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t out_reg, uint8_t invert_reg)
 	{
 	uint8_t ret_val = SUCCESS;
 	uint8_t ret_cnt = 0;
@@ -190,10 +164,10 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t inve
 	Serial.printf("Lib init %s at base 0x%.2X\r\n", _wire_name, _base);
 	
 	_wire.beginTransmission (_base);				// see if the device is communicating by writing to control register	:: this is a write to the library [wsk]
-	ret_cnt += _wire.write (PCA9557_OUT_PORT_REG);			// write returns # of bytes written to local buffer						:: also a write to the library [wsk]
-	Serial.printf("Lib init wrote %u bytes to i2c buffer\r\n", ret_cnt);
+	ret_cnt += _wire.write (PCA9557_OUT_PORT_REG);	// write returns # of bytes written to local buffer					:: also a write to the library [wsk]
+	// Serial.printf("Lib init wrote %u bytes to i2c buffer\r\n", ret_cnt);
 	ret_val = _wire.endTransmission();
-	if (ret_val)							// returns 0 if no error												:: library writes to the device [wsk]
+	if (ret_val)							// returns 0 if no error		:: library writes to the device [wsk]
 		{
 		Serial.printf("Lib init endTrans failed with 0x%.2X\r\n", ret_val);
 		control.exists = false;
@@ -202,14 +176,14 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t inve
 	
 	control.exists = true;
 
-	ret_val |= register_write(PCA9557_OUT_PORT_REG, output);			// init output reg first so that it is i correct state when config reg written
-	ret_val |= register_write(PCA9557_CONFIG_REG, ~config_reg);			// clear pin dir reg bits to 0 for all outputs				:: TODO: DON'T do this [wsk] ??? Why not |= [bab]
-	ret_val |= register_write(PCA9557_INP_INVERT_REG, invert_mask);		// 1 = input read bits inverted, 0 = not inverted
+	ret_val |= register_write(PCA9557_OUT_PORT_REG, out_reg);			// init output reg first so that it is i correct state when config reg written
+	ret_val |= register_write(PCA9557_CONFIG_REG, ~config_reg);			// clear pin dir reg bits to 0 for all outputs	
+	ret_val |= register_write(PCA9557_INP_INVERT_REG, invert_reg);		// 1 = input read bits inverted, 0 = not inverted
 
 	if (ret_val)											// if anything other than SUCCESS
 		return FAIL;										// TODO: should return ret_val which can be FAIL or ABSENT
 	
-	return ret_val;											// TODO: return SUCCESS
+	return SUCCESS;											// 
 	}
 
 //---------------------------< T A L L Y _ E R R O R S >------------------------------------------------------
@@ -227,31 +201,50 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t output, uint8_t inve
 // application than this library).  The questions in this TODO apply equally to other i2c libraries that tally
 // these errors
 //
+// Don't set control.exists = false here! These errors are likely recoverable. bab & wsk 170612
+//
 
-void Systronix_PCA9557::tally_errors (uint8_t error)
+void Systronix_PCA9557::tally_errors (uint8_t value)
 	{
-	switch (error)
+	
+	if (error.total_error_count < UINT64_MAX) error.total_error_count++; 	// every time here incr total error count
+		switch (value)
 		{
 		case 0:					// Wire.write failed to write all of the data to tx_buffer
-			control.incomplete_write_count ++;
+			error.incomplete_write_count++;
 			break;
 		case 1:					// data too long from endTransmission() (rx/tx buffers are 259 bytes - slave addr + 2 cmd bytes + 256 data)
-		case 8:					// buffer overflow from call to status() (read - transaction never started)
-			control.data_len_error_count ++;
+			error.data_len_error_count++;
 			break;
-		case 2:					// slave did not ack address (write)
-		case 5:					// from call to status() (read)
-			control.rcv_addr_nack_count ++;
-			control.exists = false;
+		case 4:					 
+#if defined I2C_T3_H		
+			error.timeout_count++;			// error 4 = i2c_t3 timeout
+#else
+			error.other_error_count++;		// error 4 = Wire "other error"
+#endif
 			break;
-		case 3:					// slave did not ack data (write)
-		case 6:					// from call to status() (read)
-			control.rcv_data_nack_count ++;
+		case 2:
+		case 5:
+			error.rcv_addr_nack_count++;
 			break;
-		case 4:					// arbitration lost (write) or timeout (read/write) or auto-reset failed
+		case 3:
+		case 6:
+			error.rcv_data_nack_count++;
+			break;
 		case 7:					// arbitration lost from call to status() (read)
-			control.other_error_count ++;
-			control.exists=false;
+			error.arbitration_lost_count++;
+			break;
+		case 8:
+			error.buffer_overflow_count++;
+			break;
+		case 9:
+		case 10:
+			error.other_error_count++;		// i2c_t3 these are not errors, I think
+			break;
+		case 11:
+		default:
+			error.unknown_error_count++;
+			break;
 		}
 	}
 
@@ -295,18 +288,18 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 		return ABSENT;
 
 	_wire.beginTransmission (_base);
-	control.ret_val = _wire.write (data);				// returns # of bytes written to i2c_t3 buffer
-	if (1 != control.ret_val)
+	error.error_val = _wire.write (data);				// returns # of bytes written to i2c_t3 buffer
+	if (1 != error.error_val)
 		{
-		control.ret_val = 0;
-		tally_errors (control.ret_val);
+		error.error_val = 0;
+		tally_errors (error.error_val);
 		return FAIL;
 		}
 
-	control.ret_val = _wire.endTransmission ();
-  	if (SUCCESS != control.ret_val)
+	error.error_val = _wire.endTransmission ();
+  	if (SUCCESS != error.error_val)
 		{
-		tally_errors (control.ret_val);					// increment the appropriate counter
+		tally_errors (error.error_val);					// increment the appropriate counter
 		return FAIL;									// calling function decides what to do with the error
 		}
 
@@ -333,19 +326,19 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 		return ABSENT;
 
 	_wire.beginTransmission (_base);
-	control.ret_val = _wire.write (reg);				// write control register; only 2 lsbs matter
-	control.ret_val += _wire.write (data);				// and write the data to the tx_buffer
-	if (2 != control.ret_val)
+	error.error_val = _wire.write (reg);				// write control register; only 2 lsbs matter
+	error.error_val += _wire.write (data);				// and write the data to the tx_buffer
+	if (2 != error.error_val)
 		{
-		control.ret_val = 0;							// what? now a value of 0 is an error, not SUCCESS?
-		tally_errors (control.ret_val);					// why can't we be consistent on what return==0 means? [bab]
+		error.error_val = 0;							// what? now a value of 0 is an error, not SUCCESS?
+		tally_errors (error.error_val);					// why can't we be consistent on what return==0 means? [bab]
 		return FAIL;
 		}
 
-	control.ret_val = _wire.endTransmission();
-  	if (SUCCESS != control.ret_val)
+	error.error_val = _wire.endTransmission();
+  	if (SUCCESS != error.error_val)
 		{
-		tally_errors (control.ret_val);					// increment the appropriate counter
+		tally_errors (error.error_val);					// increment the appropriate counter
 		return FAIL;									// calling function decides what to do with the error
 		}
 
@@ -381,15 +374,15 @@ uint8_t Systronix_PCA9557::default_read (void)
 	if (!control.exists)								// exit immediately if device does not exist
 		return ABSENT;
 
-	control.ret_val = _wire.requestFrom(_base, 1, true);
+	error.error_val = _wire.requestFrom(_base, 1, true);
 
-	if (1 != control.ret_val)
+	if (1 != error.error_val)
 		{
-		control.ret_val = _wire.status();				// to get error value
-		tally_errors (control.ret_val);					// increment the appropriate counter
+		error.error_val = _wire.status();				// to get error value
+		tally_errors (error.error_val);					// increment the appropriate counter
 
 		Serial.print(" Error I2C read didn't return 1 but ");
-		Serial.println (control.ret_val);
+		Serial.println (error.error_val);
 		}
 
 	recvd = _wire.read();	// if there was an error this assignment is undefined
@@ -419,8 +412,8 @@ uint8_t Systronix_PCA9557::default_read (uint8_t* data_ptr)
 
 	if (1 != _wire.requestFrom (_base, 1, I2C_STOP))
 		{
-		control.ret_val = _wire.status();				// to get error value
-		tally_errors (control.ret_val);					// increment the appropriate counter
+		error.error_val = _wire.status();				// to get error value
+		tally_errors (error.error_val);					// increment the appropriate counter
 		return FAIL;
 		}
 
