@@ -142,10 +142,10 @@ uint8_t Systronix_PCA9557::base_get(void)
  *  @brief Initialize the 9557 to a given state. Can be called as often as needed.
  *  
  *  Call after a hardware reset, if a reset can be caused programatically.
- *  @param config_set set bits will be outputs. 0xFF makes all pins outputs
+ *  @param config_reg set bits will be outputs. 0xFF makes all pins outputs.
  * 	Note: the 9557 config reg (which should have been called 'direction reg')
- *  uses a 1 to indicates an input, 0 an output. We think that's backwards
- *  so this param gets inverted in the init routine so that 1 bits = outputs.
+ *  uses a 1 to indicate an input, 0 an output. We think that's backwards
+ *  so this param gets inverted within this function so that 1 bits = outputs.
  *  This means if you have an output mask of 1's such as 0x0F, you can write
  *  That mask to the config reg and 0x0F will be outputs.
  *  @param out_reg value to write to output pins, writing a 1 drives outputs high
@@ -158,48 +158,47 @@ uint8_t Systronix_PCA9557::base_get(void)
  */ 
 uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t out_reg, uint8_t invert_reg)
 	{
-	uint8_t ret_val = SUCCESS;
-	uint8_t ret_cnt = 0;
+	uint8_t ret_val;
+	uint8_t ret_cnt = 0;							// TODO: remove this? do we really need a separate variable for a one-time use?
 
 	Serial.printf("Lib init %s at base 0x%.2X\r\n", _wire_name, _base);
-	
-	_wire.beginTransmission (_base);				// see if the device is communicating by writing to control register	:: this is a write to the library [wsk]
-	ret_cnt += _wire.write (PCA9557_OUT_PORT_REG);	// write returns # of bytes written to local buffer					:: also a write to the library [wsk]
-	// Serial.printf("Lib init wrote %u bytes to i2c buffer\r\n", ret_cnt);
-	ret_val = _wire.endTransmission();
-	if (ret_val)							// returns 0 if no error		:: library writes to the device [wsk]
+													// TODO: why not just call control_write() here? (would need control.exists set true first)
+	_wire.beginTransmission (_base);				// see if the device is communicating by writing to control register
+	ret_cnt = _wire.write (PCA9557_OUT_PORT_REG);	// write returns # of bytes written to library buffer	TODO: shouldn't the return value be tested?
+//	Serial.printf("Lib init wrote %u bytes to i2c buffer\r\n", ret_cnt);
+	ret_val = _wire.endTransmission();				// library writes to the device: returns 0 if no error
+	if (ret_val)
 		{
-		Serial.printf("Lib init endTrans failed with 0x%.2X\r\n", ret_val);
-		control.exists = false;
-		return FAIL;
+		Serial.printf("Lib init endTrans failed with 0x%.2X\r\n", ret_val);		// TODO: tally this error?
+		control.exists = false;						// only place this is set false
+		return FAIL;								// TODO: return ABSENT instead?
 		}
 	
 	control.exists = true;
 
-	ret_val |= register_write(PCA9557_OUT_PORT_REG, out_reg);			// init output reg first so that it is i correct state when config reg written
-	ret_val |= register_write(PCA9557_CONFIG_REG, ~config_reg);			// clear pin dir reg bits to 0 for all outputs	
-	ret_val |= register_write(PCA9557_INP_INVERT_REG, invert_reg);		// 1 = input read bits inverted, 0 = not inverted
+	ret_val = register_write(PCA9557_OUT_PORT_REG, out_reg);		// init output reg first so that it is in correct state when config reg written
+	ret_val |= register_write(PCA9557_CONFIG_REG, ~config_reg);		// clear pin dir reg bits to 0 for all outputs
+	ret_val |= register_write(PCA9557_INP_INVERT_REG, invert_reg);	// 1 = input read bits inverted, 0 = not inverted
 
-	if (ret_val)											// if anything other than SUCCESS
-		return FAIL;										// TODO: should return ret_val which can be FAIL or ABSENT
+	if (ret_val)									// if anything other than SUCCESS: FAIL > ABSENT;
+		return ret_val;								// should not see ABSENT here we just decided that the device exists
 	
-	return SUCCESS;											// 
+	return SUCCESS;
 	}
 
 //---------------------------< T A L L Y _ E R R O R S >------------------------------------------------------
 //
 // Here we tally errors.  This does not answer the what-to-do-in-the-event-of-these-errors question; it just
-// counts them.  If the device does not ack the address portion of a transaction or if we get a timeout error,
-// exists is set to false.  We assume here that the timeout error is really an indication that the automatic
-// reset feature of the i2c_t3 library failed to reset the device in which case, the device no longer 'exists'
-// for whatever reason.
+// counts them.
 //
 // TODO: we should decide if the correct thing to do when slave does not ack, or arbitration is lost, or
-// timeout occurs, or auto reset fails (states 2, 5 and 4, 7) is to declare these addresses as non-existent.
+// timeout occurs, or auto reset fails (states 2, 5 and 4, 7 ??? state numbers may have changed since this
+// comment originally added) is to declare these addresses as non-existent.
+//
 // We need to decide what to do when those conditions occur if we do not declare the device non-existent.
 // When a device is declared non-existent, what do we do then? (this last is more a question for the
 // application than this library).  The questions in this TODO apply equally to other i2c libraries that tally
-// these errors
+// these errors.
 //
 // Don't set control.exists = false here! These errors are likely recoverable. bab & wsk 170612
 //
@@ -366,7 +365,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t data)
 //
 // TODO: deprecated since 22 August 2016; delete now?
 //
-
+/*
 uint8_t Systronix_PCA9557::default_read (void)
 	{
 	uint8_t recvd = 0xFF;	// init with error value; 0xFF is not an illegal value
@@ -398,7 +397,7 @@ uint8_t Systronix_PCA9557::default_read (void)
 
 	return recvd;
 	}
-
+*/
 
 //---------------------------< D E F A U L T _ R E A D >------------------------------------------------------
 //
@@ -518,7 +517,7 @@ uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
 
 	if (register_write (PCA9557_OUT_PORT_REG, out_val))		// drive output(s) to new state
 		return FAIL;
-	return SUCCESS;
+	return SUCCESS;		//TODO: shouldn't we be updating private variable _out_reg with the new value?
 	}
 
 
@@ -535,7 +534,7 @@ uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
 //
 // TODO: deprecated since 22 August 2016; delete now?
 //
-
+/*
 uint8_t Systronix_PCA9557::input_read ()
 	{
 	uint8_t data_read;
@@ -546,7 +545,7 @@ uint8_t Systronix_PCA9557::input_read ()
 	data_read = default_read();
 	return data_read;
 	}
-
+*/
 
 //---------------------------< I N P U T _ R E A D >----------------------------------------------------------
 //
@@ -564,7 +563,7 @@ uint8_t Systronix_PCA9557::input_read (uint8_t* data_ptr)
 	
 	if (default_read (data_ptr))
 		return FAIL;
-	return SUCCESS;
+	return SUCCESS;		// TODO: shouldn't we be updating private variable _inp_data?
 	}
 
 
@@ -585,7 +584,7 @@ uint8_t Systronix_PCA9557::input_read (uint8_t* data_ptr)
 //
 // TODO: deprecated since 22 August 2016; delete now?
 //
-
+/*
 uint8_t Systronix_PCA9557::output_read ()
 	{
 	uint8_t data_read;
@@ -596,7 +595,7 @@ uint8_t Systronix_PCA9557::output_read ()
 	data_read = default_read();
 	return data_read;
 	}
-
+*/
 
 //---------------------------< O U T P U T _ R E A D >--------------------------------------------------------
 /**
@@ -620,5 +619,5 @@ uint8_t Systronix_PCA9557::output_read (uint8_t* data_ptr)
 
 	if (default_read(data_ptr))
 		return FAIL;
-	return SUCCESS;
+	return SUCCESS;					//TODO: shouldn't we be updating private variable _out_reg with the new value?
 	}
