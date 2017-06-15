@@ -2,6 +2,7 @@
  PCA9557.h, based on started PCAL9535A library
  Revisions
  
+ 2017 Jun 15 bboyes w/skendall, major review and cleanup
  2016 May 15 bboyes Conditional comp use of i2c_t3
  2016 May 09 bboyes changing SALT1 bit mapping to reflect actual SALT 1v00 board layout
  2015 Apr 22 bboyes start, based on incomplete PCAL9535A library as used on ARV2
@@ -96,7 +97,7 @@ class Systronix_PCA9557
 		See NAP_UI_key_defs.h for similar
 		*/
 #if defined I2C_T3_H 		
-		const char * const status_text[11] =
+		const char * const status_text[12] =
 		{
 			"I2C_WAITING", 		// first four are not errors but status
 			"I2C_SENDING", 
@@ -108,7 +109,8 @@ class Systronix_PCA9557
 			"I2C_ARB_LOST",
 			"I2C_BUF_OVF",
 			"I2C_SLAVE_TX", 	// slave status; not errors
-			"I2C_SLAVE_RX"
+			"I2C_SLAVE_RX",
+			"SILLY_PROGRAMMER"	// Doh. Slap forehead.
 		};
 #else
 		// Wire.h returns from endTransmission
@@ -140,9 +142,10 @@ class Systronix_PCA9557
 			uint32_t	rcv_data_nack_count;			// slave did not ack data
 			uint32_t	arbitration_lost_count;
 			uint32_t	buffer_overflow_count;
-			uint32_t	other_error_count;				// arbitration lost or timeout
+			uint32_t	other_error_count;				// from endTransmission there is "other" error
 			uint32_t	unknown_error_count;
 			uint32_t	data_value_error_count;			// I2C message OK but value read was wrong; how can this be?
+			uint32_t	silly_programmer_error;			// I2C address to big or something else that "should never happen"
 			uint64_t	total_error_count;				// quick check to see if any have happened
 			uint64_t	successful_count;				// successful access cycle
 			} error;
@@ -159,12 +162,14 @@ class Systronix_PCA9557
 		void		begin(void);
 		uint8_t		init (uint8_t, uint8_t, uint8_t);		// sets regs
 		
-		uint8_t		control_write (uint8_t);
-		uint8_t		register_write (uint8_t, uint8_t);
+		uint8_t		control_write (uint8_t target_register);
+		uint8_t		register_write (uint8_t target_register, uint8_t data);
+		uint8_t 	register_read (uint8_t target_register, uint8_t* data_ptr);	
 		uint8_t		default_read (uint8_t*);
-		uint8_t		input_read (uint8_t*);
-		uint8_t		output_read (uint8_t*);
+		uint8_t		input_read (uint8_t*);		// deprecated, use register_read
+		uint8_t		output_read (uint8_t*);		// deprecated, use register_read
 		uint8_t		base_get(void);
+		uint8_t 	self_test(uint8_t ignore_pins);		// TODO: write this!
 
 		
 //---- TODO: these deprecated since 22 August 2016; delete now?
