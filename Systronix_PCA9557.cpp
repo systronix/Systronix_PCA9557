@@ -178,7 +178,7 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t out_reg, uint8_t inv
 		return ABSENT;								
 		}
 	
-	control.exists = true;
+//	control.exists = true;
 
 	ret_val = register_write(PCA9557_OUT_PORT_REG, out_reg);		// init output reg first so that it is in correct state when config reg written
 	ret_val |= register_write(PCA9557_CONFIG_REG, ~config_reg);		// clear pin dir reg bits to 0 for all outputs
@@ -394,7 +394,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t target_register)
 	@param target_register
 	@param data
 
-	returns returns SUCCESS, FAIL, or ABSENT
+	returns SUCCESS, FAIL, or ABSENT
 	return of 0 == SUCCESS
 
 */
@@ -431,7 +431,7 @@ TODO have some way to verify that _control_reg is still what we think it is?
 
 @param *data_ptr pointer to a uint8_t where the read data will be written
 
-	returns returns SUCCESS, FAIL, or ABSENT
+	returns SUCCESS, FAIL, or ABSENT
 	return of 0 == SUCCESS
 */
 
