@@ -14,6 +14,9 @@
 #ifndef PCA9557_H_
 #define PCA9557_H_
 
+
+//---------------------------< I N C L U D E S >--------------------------------------------------------------
+
 #include <Arduino.h>
 
 // Include the lowest level I2C library
@@ -23,6 +26,9 @@
 #include <Wire.h>	// for AVR I2C library
 #endif
 
+
+//---------------------------< D E F I N E S >----------------------------------------------------------------
+
 #define		SUCCESS	0
 #define		FAIL	(~SUCCESS)
 #define		ABSENT	0xFD
@@ -31,7 +37,7 @@
 #define PCA9557_BASE_MAX 			0x1F  // 7-bit address not including R/W bit
 
 
-/*--------------------------- COMMAND REGISTER ----------------*/
+//----------< C O M M A N D   R E G I S T E R >----------
 
 /**
  * Input port is read-only. Reads actual state of all device
@@ -60,7 +66,6 @@
  * POR = 0xFF (all I/O bits are inputs)
  */
 #define	PCA9557_CONFIG_REG	0x03
-
 
 
 class Systronix_PCA9557
@@ -99,7 +104,7 @@ class Systronix_PCA9557
 #if defined I2C_T3_H 		
 		const char * const status_text[12] =
 		{
-			"I2C_WAITING", 		// first four are not errors but status
+			"I2C_WAITING", 		// first four are not errors but status; first eleven taken from i2c_t3.h
 			"I2C_SENDING", 
 			"I2C_SEND_ADDR",
 			"I2C_RECEIVING",
@@ -117,7 +122,7 @@ class Systronix_PCA9557
 		// 0=success, 1=data too long, 2=recv addr NACK, 3=recv data NACK, 4=other error
 		const char * const status_text[5] =
 		{
-			"Success",		// TODO not an error, we should not tally it! 
+			"Success",
 			"Data length",
 			"Receive addr NAK", 
 			"Receive data NAK",
@@ -152,40 +157,29 @@ class Systronix_PCA9557
 
 		 
 
-		char*		wire_name;	// name of Wire, Wire1, etc in use
+		char*		wire_name;							// name of Wire, Wire1, etc in use
 
-					Systronix_PCA9557();		// constructor
+					Systronix_PCA9557();				// constructor
 
-		void		setup (uint8_t base);		// defaults to Wire net
-		void		setup (uint8_t base, i2c_t3 wire, char* name);					// initialize 
+		void		setup (uint8_t base);				// defaults to Wire net
+		void		setup (uint8_t base, i2c_t3 wire, char* name);	// initialize
 		void 		begin(i2c_pins pins, i2c_rate rate);	// with pins and rate
 		void		begin(void);
-		uint8_t		init (uint8_t, uint8_t, uint8_t);		// sets regs
+		uint8_t		init (uint8_t, uint8_t, uint8_t);	// sets regs
 		
 		uint8_t		control_write (uint8_t target_register);
 		uint8_t		register_write (uint8_t target_register, uint8_t data);
 		uint8_t 	register_read (uint8_t target_register, uint8_t* data_ptr);	
 		uint8_t		default_read (uint8_t*);
-		uint8_t		input_read (uint8_t*);		// deprecated, use register_read
-		uint8_t		output_read (uint8_t*);		// deprecated, use register_read
 		uint8_t		base_get(void);
 		uint8_t 	self_test(uint8_t ignore_pins);		// TODO: write this!
 		uint8_t		pin_mobility_test (uint8_t ignore_pins_mask);
 		
-//---- TODO: these deprecated since 22 August 2016; delete now?
-		uint8_t		default_read (void);				// this function deprecated
-		uint8_t		input_read (void);					// this function deprecated
-		uint8_t		output_read (void);					// this function deprecated
-//----
 		uint8_t		pin_pulse (uint8_t pin_mask, boolean);
 		uint8_t		pin_drive (uint8_t pin_mask, boolean);
 		
 	private:
 
 };
-
-
 	
 #endif	// PCA9557_H_
-
-
