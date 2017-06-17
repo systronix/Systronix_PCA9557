@@ -170,7 +170,7 @@ class Systronix_PCA9557
 		uint8_t		output_read (uint8_t*);		// deprecated, use register_read
 		uint8_t		base_get(void);
 		uint8_t 	self_test(uint8_t ignore_pins);		// TODO: write this!
-
+		uint8_t		pin_mobility_test (uint8_t ignore_pins_mask);
 		
 //---- TODO: these deprecated since 22 August 2016; delete now?
 		uint8_t		default_read (void);				// this function deprecated

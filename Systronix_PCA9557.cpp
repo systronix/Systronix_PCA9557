@@ -641,3 +641,33 @@ uint8_t Systronix_PCA9557::self_test(uint8_t ignore_pins)
 
 	return SUCCESS;		// for now until actually written
 }
+
+
+//---------------------------< P I N _ M O B I L I Y _ T E S T >----------------------------------------------
+//
+// A simple test to see that we can wiggle the PCA9557 port pins and that the pins aren't tied together or
+// shorted to ground or a supply rail.
+//
+
+
+uint8_t Systronix_PCA9557::pin_mobility_test (uint8_t ignore_pins_mask)
+	{
+	int32_t write = 0xFEFF0100;									// walking 1 followed by walking zero (24 right shifts)
+	uint8_t	write_val;
+	uint8_t	read = 0;
+
+	init (~ignore_pins_mask, 0, 0);								// set proper test configuration
+	for (uint8_t i=0; i<25; i++, write >>=1)					// initial write plus 24 shifts leaves with all bits set
+		{
+		write_val = (uint8_t)(write | ignore_pins_mask);		// low 8 bits; force bit 4 to be set
+		register_write (PCA9557_OUT_PORT_REG, write_val);		// write test value to the output register
+		input_read (&read);										// read the 9557's i/o pins
+		if ((read | ignore_pins_mask) != write_val)				// what we read should be the same as what we wrote
+			{
+			Serial.printf ("pin mobility test: expected: 0x%.2X; got: 0x%.2X\n", write_val, read);
+			return FAIL;
+			}
+		}
+
+	return SUCCESS;
+	}
