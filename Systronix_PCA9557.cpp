@@ -184,7 +184,8 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t out_reg, uint8_t inv
 
 	if (ret_val)									// if anything other than SUCCESS: FAIL > ABSENT;
 		return ret_val;								// should not see ABSENT here we just decided that the device exists
-	
+
+	if (error.successful_count < UINT64_MAX) error.successful_count++;
 	return SUCCESS;
 }
 
@@ -321,6 +322,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t target_register)
 		}
 
 	_control_reg = target_register;						// remember where the control register is pointing
+	if (error.successful_count < UINT64_MAX) error.successful_count++;
 	return SUCCESS;
 }
 
@@ -376,6 +378,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t target_register)
 	else if (PCA9557_CONFIG_REG == target_register)
 		_config_reg = data;
 
+	if (error.successful_count < UINT64_MAX) error.successful_count++;
 	return SUCCESS;
 }
 
@@ -414,6 +417,7 @@ uint8_t Systronix_PCA9557::register_read (uint8_t target_register, uint8_t* data
 	if (default_read (data_ptr))				// read the target_register
 		return FAIL;
 
+	// the actual functions above update successful_count so don't duplicate that here
 	return SUCCESS;
 
 }	
@@ -458,6 +462,7 @@ uint8_t Systronix_PCA9557::default_read (uint8_t* data_ptr)
 	else if (PCA9557_CONFIG_REG == _control_reg)
 		_config_reg = *data_ptr;
 
+	if (error.successful_count < UINT64_MAX) error.successful_count++;
 	return SUCCESS;
 	}
 
@@ -516,6 +521,7 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 	if (register_write(PCA9557_OUT_PORT_REG, out_val))	// restore outputs to idle state
 		return FAIL;
 
+	if (error.successful_count < UINT64_MAX) error.successful_count++;
 	return SUCCESS;
 	}
 
@@ -558,6 +564,8 @@ uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
 
 	if (register_write (PCA9557_OUT_PORT_REG, out_val))		// drive output(s) to new state
 		return FAIL;
+
+	if (error.successful_count < UINT64_MAX) error.successful_count++;	
 	return SUCCESS;		//TODO: shouldn't we be updating private variable _out_reg with the new value?
 	}
 
@@ -639,6 +647,8 @@ to outputs, but make them inputs
 uint8_t Systronix_PCA9557::self_test(uint8_t ignore_pins)
 {
 
+	// decide if we need to update success counter here
+	// if (error.successful_count < UINT64_MAX) error.successful_count++;
 	return SUCCESS;		// for now until actually written
 }
 
@@ -669,5 +679,6 @@ uint8_t Systronix_PCA9557::pin_mobility_test (uint8_t ignore_pins_mask)
 			}
 		}
 
+	// the actual function(s) above update successful_count so don't duplicate that here
 	return SUCCESS;
 	}
