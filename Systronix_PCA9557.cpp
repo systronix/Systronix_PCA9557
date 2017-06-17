@@ -1,6 +1,10 @@
 /****************************************************************************
 	Systronix_PCA9557.cpp
 
+Be sure to set stop "true" to release the bus or it will send a restart 
+So to read three bytes, do a requestFrom(address, 2, true). << insists the first param is int.
+Compiler has major whines if called as shown in the online Wire reference.
+
 	Author: bboyes
  
  Based on Rev. 06 — 11 June 2008 of the NXP data sheet
@@ -31,10 +35,6 @@
 
 Wire.endTransmission() seems to be only intended for use with a master write.
 Wire.requestFrom(address, quantity, stop) is used to get bytes from a slave, with read().
-Be sure to set stop "true" to release the bus or it will send a restart 
-So to read three bytes, do a requestFrom(address, 2, true). << insists the first param is int.
-Compiler has major whines if called as shown in the online Wire reference.
-
  NOTE: We are actually using i2c_t3 optimized for Teensy 3.x but should 
  still work with Wire on Teensy or other Arduinos
  
@@ -518,8 +518,7 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 	
 	if (register_write(PCA9557_OUT_PORT_REG, out_val))	// restore outputs to idle state
 		return FAIL;
-
-	if (error.successful_count < UINT64_MAX) error.successful_count++;
+	
 	return SUCCESS;
 	}
 
@@ -562,7 +561,6 @@ uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
 	if (register_write (PCA9557_OUT_PORT_REG, out_val))		// drive output(s) to new state
 		return FAIL;
 
-	if (error.successful_count < UINT64_MAX) error.successful_count++;	
 	return SUCCESS;
 	}
 
