@@ -29,12 +29,15 @@
 
 //---------------------------< D E F I N E S >----------------------------------------------------------------
 
-#define		SUCCESS	0
-#define		FAIL	(~SUCCESS)
-#define		ABSENT	0xFD
+#define		SUCCESS				0
+#define		FAIL				(~SUCCESS)
+#define		ABSENT				0xFD
 
-#define PCA9557_BASE_MIN 			0x18  // 7-bit address not including R/W bit
-#define PCA9557_BASE_MAX 			0x1F  // 7-bit address not including R/W bit
+#define		PCA9557_BASE_MIN 	0x18		// 7-bit address not including R/W bit
+#define		PCA9557_BASE_MAX 	0x1F		// 7-bit address not including R/W bit
+
+#define		WR_INCOMPLETE		0
+#define		SILLY_PROGRAMMER	11
 
 
 //----------< C O M M A N D   R E G I S T E R >----------
@@ -161,8 +164,9 @@ class Systronix_PCA9557
 
 					Systronix_PCA9557();				// constructor
 
-		void		setup (uint8_t base);				// defaults to Wire net
-		void		setup (uint8_t base, i2c_t3 wire, char* name);	// initialize
+		uint8_t		setup (uint8_t base, i2c_t3 wire, char* name);	// initialize
+		void		setup (uint8_t base)				// defaults to Wire net
+					{setup (base, Wire, (char*) "Wire");};
 		void 		begin(i2c_pins pins, i2c_rate rate);	// with pins and rate
 		void		begin(void);
 		uint8_t		init (uint8_t, uint8_t, uint8_t);	// sets regs

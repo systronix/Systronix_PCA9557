@@ -73,30 +73,36 @@ Systronix_PCA9557::Systronix_PCA9557()
 /**************************************************************************/
 /*!
     @brief  Instantiates a new PCA9557 class to use the given base address
-	@todo	Test base address for legal range 0x18..0x1F
 
 	@param wire instance of i2c_t3 'object' Wire, Wire1, Wire2, Wire3
 	@param name is a string such as Wire, Wire1, etc used for debug output, 
 		also saved as wire_name
 */
 /**************************************************************************/
-void Systronix_PCA9557::setup(uint8_t base, i2c_t3 wire, char* name)
+uint8_t Systronix_PCA9557::setup(uint8_t base, i2c_t3 wire, char* name)
 	{
+	if ((PCA9557_BASE_MIN > base) || (PCA9557_BASE_MAX < base))
+		{
+		tally_errors (SILLY_PROGRAMMER);
+		return FAIL;
+		}
+
 	_base = base;
 	_wire = wire;
 	_wire_name = wire_name = name;		// protected and public
+	return SUCCESS;
 	}
 
 /**
 	Default setup, where itc_t3 &wire is Wire and the name is "Wire"
 	This makes the library backwards compatible with older applications.
 */
-void Systronix_PCA9557::setup(uint8_t base)
-	{
-	_base = base;
-	_wire = Wire;
-	_wire_name = wire_name = (char*) "Wire";		// protected and public
-	}
+//void Systronix_PCA9557::setup(uint8_t base)
+//	{
+//	_base = base;
+//	_wire = Wire;
+//	_wire_name = wire_name = (char*) "Wire";		// protected and public
+//	}
 
 
 /**************************************************************************/
@@ -130,6 +136,8 @@ void Systronix_PCA9557::begin(void)
 	_wire.setDefaultTimeout(200000); // 200ms
 	}	
 
+
+//---------------------------< B A S E _ G E T >--------------------------------------------------------------
 /**
 	return the I2C base address for this instance
 */
@@ -218,38 +226,39 @@ void Systronix_PCA9557::tally_errors (uint8_t value)
 
 	switch (value)
 	{
-	case 0:					// Wire.write failed to write all of the data to tx_buffer
+	case WR_INCOMPLETE:					// Wire.write failed to write all of the data to tx_buffer
 		error.incomplete_write_count++;
 		break;
-	case 1:					// data too long from endTransmission() (rx/tx buffers are 259 bytes - slave addr + 2 cmd bytes + 256 data)
+	case 1:								// i2c_t3 and Wire: data too long from endTransmission() (rx/tx buffers are 259 bytes - slave addr + 2 cmd bytes + 256 data)
 		error.data_len_error_count++;
 		break;
-	case 4:					 
-#if defined I2C_T3_H		
-		error.timeout_count++;			// error 4 = i2c_t3 timeout
+#if defined I2C_T3_H
+	case I2C_TIMEOUT:
+		error.timeout_count++;			// 4 from i2c_t3; timeout from call to status() (read)
 #else
-		error.other_error_count++;		// error 4 = Wire "other error"
+	case 4:
+		error.other_error_count++;		// i2c_t3 and Wire: from endTransmission() "other error"
 #endif
 		break;
-	case 2:
-	case 5:
+	case 2:								// i2c_t3 and Wire: from endTransmission()
+	case I2C_ADDR_NAK:					// 5 from i2c_t3
 		error.rcv_addr_nack_count++;
 		break;
-	case 3:
-	case 6:
+	case 3:								// i2c_t3 and Wire: from endTransmission()
+	case I2C_DATA_NAK:					// 6 from i2c_t3
 		error.rcv_data_nack_count++;
 		break;
-	case 7:					// arbitration lost from call to status() (read)
+	case I2C_ARB_LOST:					// 7 from i2c_t3; arbitration lost from call to status() (read)
 		error.arbitration_lost_count++;
 		break;
-	case 8:
+	case I2C_BUF_OVF:
 		error.buffer_overflow_count++;
 		break;
-	case 9:
-	case 10:
-		error.other_error_count++;		// i2c_t3 these are not errors, I think
+	case I2C_SLAVE_TX:
+	case I2C_SLAVE_RX:
+		error.other_error_count++;		// 9 & 10 from i2c_t3; these are not errors, I think
 		break;
-	case 11:
+	case SILLY_PROGRAMMER:				// 11
 		error.silly_programmer_error++;
 		break;
 	default:
@@ -295,22 +304,20 @@ void Systronix_PCA9557::tally_errors (uint8_t value)
  */
 
 uint8_t Systronix_PCA9557::control_write (uint8_t target_register)
-{
+	{
 	uint8_t ret_val;
 
 	if (!control.exists)						// exit immediately if device does not exist
 		return ABSENT;
 
 	if (target_register > PCA9557_CONFIG_REG)
-	{
-		tally_errors(11);						// upper bits not fatal. We think. TODO: test this in 9557 example code.
-	}
+		tally_errors(SILLY_PROGRAMMER);			// upper bits not fatal. We think. TODO: test this in 9557 example code.
 
 	_wire.beginTransmission (_base);
 	ret_val = _wire.write (target_register);	// returns # of bytes written to i2c_t3 buffer
 	if (1 != ret_val)
 		{
-		tally_errors (0);						// only here we make 0 an error value
+		tally_errors (WR_INCOMPLETE);			// only here we make 0 an error value
 		return FAIL;
 		}
 
@@ -325,7 +332,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t target_register)
 
 	if (error.successful_count < UINT64_MAX) error.successful_count++;
 	return SUCCESS;
-}
+	}
 
 
 //---------------------------< R E G I S T E R _ W R I T E >--------------------------------------------------
@@ -342,31 +349,29 @@ uint8_t Systronix_PCA9557::control_write (uint8_t target_register)
 
  **/
 
- uint8_t Systronix_PCA9557::register_write (uint8_t target_register, uint8_t data)
-{
+uint8_t Systronix_PCA9557::register_write (uint8_t target_register, uint8_t data)
+	{
 	uint8_t ret_val;
 
 	if (target_register > PCA9557_CONFIG_REG)
-	{
-		tally_errors(11);						// upper bits not fatal. We think. TODO: test this in 9557 example code.
-	}
+		tally_errors(SILLY_PROGRAMMER);					// upper bits not fatal. We think. TODO: test this in 9557 example code.
 
 	if (!control.exists)								// exit immediately if device does not exist
 		return ABSENT;	
 
 	_wire.beginTransmission (_base);
-	ret_val = _wire.write (target_register);	// write control register; only 2 lsbs matter
-	ret_val += _wire.write (data);				// and write the data to the tx_buffer
+	ret_val = _wire.write (target_register);			// write control register; only 2 lsbs matter
+	ret_val += _wire.write (data);						// and write the data to the tx_buffer
 	if (2 != ret_val)
 		{
-		tally_errors (0);					// only here 0 is error value since we expected to write more than 0 bytes
+		tally_errors (WR_INCOMPLETE);					// only here 0 is error value since we expected to write more than 0 bytes
 		return FAIL;
 		}
 
 	ret_val = _wire.endTransmission();
   	if (SUCCESS != ret_val)
 		{
-		tally_errors (ret_val);					// increment the appropriate counter
+		tally_errors (ret_val);							// increment the appropriate counter
 		return FAIL;									// calling function decides what to do with the error
 		}
 
@@ -381,7 +386,7 @@ uint8_t Systronix_PCA9557::control_write (uint8_t target_register)
 
 	if (error.successful_count < UINT64_MAX) error.successful_count++;
 	return SUCCESS;
-}
+	}
 
 //---------------------------< R E G I S T E R _ R E A D >------------------------------------------------------
 /**
@@ -405,9 +410,7 @@ uint8_t Systronix_PCA9557::register_read (uint8_t target_register, uint8_t* data
 {
 
 	if (target_register > PCA9557_CONFIG_REG)
-	{
-		tally_errors(11);						// upper bits not fatal. We think. TODO: test this in 9557 example code.
-	}
+		tally_errors(SILLY_PROGRAMMER);						// upper bits not fatal. We think. TODO: test this in 9557 example code.
 
 	if (!control.exists)						// exit immediately if device does not exist
 		return ABSENT;
@@ -445,8 +448,8 @@ uint8_t Systronix_PCA9557::default_read (uint8_t* data_ptr)
 
 	if (1 != _wire.requestFrom (_base, 1, I2C_STOP))
 		{
-		ret_val = _wire.status();				// to get error value
-		tally_errors (ret_val);					// increment the appropriate counter
+		ret_val = _wire.status();						// to get error value
+		tally_errors (ret_val);							// increment the appropriate counter
 		return FAIL;
 		}
 
