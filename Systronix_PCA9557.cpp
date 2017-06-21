@@ -197,6 +197,25 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t out_reg, uint8_t inv
 	return SUCCESS;
 }
 
+/**
+	Invoke resetBus of whichever Wire net this class instance is using
+	@return nothing
+*/
+void Systronix_PCA9557::reset_bus (void)
+{
+	_wire.resetBus();
+}
+
+/**
+	Return the resetBusCount of whichever Wire net this class instance is using
+	@return number of Wire net resets, clips at UINT32_MAX
+*/
+uint32_t Systronix_PCA9557::reset_bus_count_read(void)
+{
+	return _wire.resetBusCountRead();
+}
+
+
 //---------------------------< T A L L Y _ E R R O R S >------------------------------------------------------
 /**
 Here we tally errors.  This does not answer the what-to-do-in-the-event-of-these-errors question; it just
@@ -624,3 +643,5 @@ uint8_t Systronix_PCA9557::pin_mobility_test (uint8_t ignore_pins_mask)
 	// the actual function(s) above update successful_count so don't duplicate that here
 	return SUCCESS;
 	}
+
+

@@ -181,7 +181,9 @@ class Systronix_PCA9557
 		
 		uint8_t		pin_pulse (uint8_t pin_mask, boolean);
 		uint8_t		pin_drive (uint8_t pin_mask, boolean);
-		
+
+		void		reset_bus (void);				// invoke Wire[x] resetBus()
+		uint32_t	reset_bus_count_read(void);		// read resetBusCount for Wire[x]
 	private:
 
 };
