@@ -89,7 +89,6 @@ class Systronix_PCA9557
 	public:
 		struct
 			{
-			uint8_t		ret_val;						// not clear what this really is
 			boolean		exists;							// set false after an unsuccessful i2c transaction
 			} control;
 
