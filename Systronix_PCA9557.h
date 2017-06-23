@@ -36,8 +36,8 @@
 #define		PCA9557_BASE_MIN 	0x18		// 7-bit address not including R/W bit
 #define		PCA9557_BASE_MAX 	0x1F		// 7-bit address not including R/W bit
 
-#define		WR_INCOMPLETE		0
-#define		SILLY_PROGRAMMER	11
+#define		WR_INCOMPLETE		11
+#define		SILLY_PROGRAMMER	12
 
 
 //----------< C O M M A N D   R E G I S T E R >----------
@@ -84,14 +84,9 @@ class Systronix_PCA9557
 		char* 		_wire_name = (char*)"empty";
 		i2c_t3		_wire = Wire;						// why is this assigned value = Wire? [bab]
 		
-		void		tally_errors (uint8_t);
+		void		tally_transaction (uint8_t);
    
 	public:
-		struct
-			{
-			boolean		exists;							// set false after an unsuccessful i2c transaction
-			} control;
-
 
 		/**
 		Array of Wire.status() extended return code strings, 11 as of 29Dec16 i2c_t3 release
@@ -141,6 +136,7 @@ class Systronix_PCA9557
 		*/
 		struct
 			{
+			boolean		exists;							// set false after an unsuccessful i2c transaction
 			uint8_t		error_val;						// the most recent error value, not just SUCCESS or FAIL
 			uint32_t	incomplete_write_count;			// Wire.write failed to write all of the data to tx_buffer
 			uint32_t	data_len_error_count;			// data too long
