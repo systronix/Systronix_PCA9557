@@ -97,9 +97,14 @@ class Systronix_PCA9557
 		We can access this with a const char * text_ptr which means point to char(s) which happen to be const
 		Note each literal string has a null terminator added by C compiler.
 		See NAP_UI_key_defs.h for similar
+
+		TODO A problem is that SUCCESS returns 0 and gets put into error_val, so
+		we can't tell the difference between SUCCESS and I2C_WAITING
+		Since requestFrom is blocking, only "I2C message is over" status can occur.
+		In Writing, with endTransmission, it is blocking, so only end of message errors can exist.
 		*/
 #if defined I2C_T3_H 		
-		const char * const status_text[12] =
+		const char * const status_text[13] =
 		{
 			"I2C_WAITING", 		// first four are not errors but status; first eleven taken from i2c_t3.h
 			"I2C_SENDING", 
@@ -112,6 +117,7 @@ class Systronix_PCA9557
 			"I2C_BUF_OVF",
 			"I2C_SLAVE_TX", 	// slave status; not errors
 			"I2C_SLAVE_RX",
+			"WR_INCOMPLETE",
 			"SILLY_PROGRAMMER"	// Doh. Slap forehead.
 		};
 #else
