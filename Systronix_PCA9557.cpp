@@ -455,7 +455,6 @@ TODO have some way to verify that _control_reg is still what we think it is?
 uint8_t Systronix_PCA9557::default_read (uint8_t* data_ptr)
 	{
 	uint8_t ret_val;
-	uint16_t ui16 = 0xABCD;
 
 	if (!error.exists)								// exit immediately if device does not exist
 		return ABSENT;
@@ -467,12 +466,7 @@ uint8_t Systronix_PCA9557::default_read (uint8_t* data_ptr)
 		return FAIL;
 		}
 
-	// Serial.printf("\r\nptr is %p\r\n", data_ptr);
-	// Serial.printf("before default_read 0x%.2X 0x%.2X", *data_ptr, *(data_ptr+1));
 	*data_ptr = _wire.readByte();
-	// Serial.printf(" after default_read 0x%.2X 0x%.2X\r\n", *data_ptr, *(data_ptr+1));
-	// *data_ptr = ui16;
-	// Serial.printf(" after ui16 write 0x%.2X 0x%.2X\r\n", *data_ptr, *(data_ptr+1));
 
 	if (PCA9557_INP_PORT_REG == _control_reg)			// update our remembered reg value
 		_inp_data = *data_ptr;
