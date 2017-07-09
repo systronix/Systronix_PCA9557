@@ -103,11 +103,11 @@ uint8_t Systronix_PCA9557::setup(uint8_t base, i2c_t3 wire, char* name)
 /**************************************************************************/
 /*!
     @brief  Join the I2C bus as a master, call this once in setup()
-	
-	Wire.begin() doesn't return anything
 
-	There's no (void) version of begin. We want to force ourselves to 
-	explicitly declare which I2C net and speed we are using.
+    @param pins must be from i2c_t3 enum i2c_pins
+    @param rate speed in KHz, won't end up being exact. Use i2c_t3 enum i2c_rate
+	@returns nothing, since Wire.begin() doesn't return anything
+
 */
 /**************************************************************************/
 void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
@@ -121,7 +121,8 @@ void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
 
 
 /**
-*
+	@ brief Void version of begin for backwards compatability, assumes Wire net
+
 */
 void Systronix_PCA9557::begin(void)
 	{	
