@@ -74,9 +74,15 @@ Systronix_PCA9557::Systronix_PCA9557()
 /*!
     @brief  Instantiates a new PCA9557 class to use the given base address
 
+	@param base the I2C base address where this device instance is located
 	@param wire instance of i2c_t3 'object' Wire, Wire1, Wire2, Wire3
 	@param name is a string such as Wire, Wire1, etc used for debug output, 
 		also saved as wire_name
+	@TODO merge with begin()? This function doesn't actually do anything,
+	it just sets some private values. It's redundant and some params must
+	be effectively specified again in begin (Wire net and pins are not independent).
+	@TODO there is no default of this using just the base, so the example program
+	PCA9557_test_all doesn't work with this library version.
 */
 /**************************************************************************/
 uint8_t Systronix_PCA9557::setup(uint8_t base, i2c_t3 wire, char* name)
