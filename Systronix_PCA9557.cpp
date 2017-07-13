@@ -70,7 +70,8 @@ Systronix_PCA9557::Systronix_PCA9557()
 	// _wire = Wire;		// default Wire, overridden in setup()
 }
 
-/**************************************************************************/
+
+//---------------------------< S E T U P >--------------------------------------------------------------------
 /*!
     @brief  Instantiates a new PCA9557 class to use the given base address
 
@@ -84,7 +85,7 @@ Systronix_PCA9557::Systronix_PCA9557()
 	@TODO there is no default of this using just the base, so the example program
 	PCA9557_test_all doesn't work with this library version.
 */
-/**************************************************************************/
+
 uint8_t Systronix_PCA9557::setup(uint8_t base, i2c_t3 wire, char* name)
 	{
 	if ((PCA9557_BASE_MIN > base) || (PCA9557_BASE_MAX < base))
@@ -189,10 +190,11 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t out_reg, uint8_t inv
 	if (ret_val)									// if anything other than SUCCESS: FAIL > ABSENT;
 		return ret_val;								// should not see ABSENT here we just decided that the device exists
 
-	tally_transaction (SUCCESS);
 	return SUCCESS;
 }
 
+
+//---------------------------< R E S E T _ B U S >------------------------------------------------------------
 /**
 	Invoke resetBus of whichever Wire net this class instance is using
 	@return nothing
@@ -202,6 +204,8 @@ void Systronix_PCA9557::reset_bus (void)
 	_wire.resetBus();
 }
 
+
+//---------------------------< R E S E T _ B U S _ C O U N T _ R E A D >--------------------------------------
 /**
 	Return the resetBusCount of whichever Wire net this class instance is using
 	@return number of Wire net resets, clips at UINT32_MAX
@@ -212,7 +216,7 @@ uint32_t Systronix_PCA9557::reset_bus_count_read(void)
 }
 
 
-//---------------------------< T A L L Y _ E R R O R S >------------------------------------------------------
+//---------------------------< T A L L Y _ T R A N S A C T I O N >--------------------------------------------
 /**
 Here we tally errors.  This does not answer the what-to-do-in-the-event-of-these-errors question; it just
 counts them.
