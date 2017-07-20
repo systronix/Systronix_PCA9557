@@ -116,7 +116,7 @@ void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
 	// @TODO add default read first thing to see if it is the control reg
 	// but even if it is, is it any use? How would we know what to expect?
 	_wire.begin(I2C_MASTER, 0x00, pins, I2C_PULLUP_EXT, rate);	// join I2C as master
-	Serial.printf("Lib begin %s\r\n", _wire_name);
+//	Serial.printf("9557 lib begin %s\r\n", _wire_name);
 	_wire.setDefaultTimeout(200000); // 200ms
 	}
 
@@ -173,12 +173,12 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t out_reg, uint8_t inv
 	uint8_t ret_val;
 	error.exists = true;					// so we can use control_write; we'll find out later if device does not exist
 
-	Serial.printf("Lib init %s at base 0x%.2X\r\n", _wire_name, _base);
+//	Serial.printf("Lib init %s at base 0x%.2X\r\n", _wire_name, _base);
 
 	ret_val = control_write(PCA9557_OUT_PORT_REG);		// if successful this means we got two ACKs from slave device
 	if (SUCCESS != ret_val)
 		{
-		Serial.printf("Lib init failed with 0x%.2X\r\n", error.error_val);
+		Serial.printf("9557 lib init failed with %s (0x%.2X)\r\n", status_text[error.error_val], error.error_val);
 		error.exists = false;			// only place error.exists is set false
 		return ABSENT;								
 		}
