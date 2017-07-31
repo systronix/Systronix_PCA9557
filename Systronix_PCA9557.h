@@ -159,7 +159,9 @@ class Systronix_PCA9557
 			uint64_t	successful_count;				// successful access cycle
 			} error;
 
-		 
+
+		uint8_t		pins_test_wr;						// when pin mobility test fails; the byte written goes here
+		uint8_t		pins_test_rd;						// and the read-back value goes here
 
 		char*		wire_name;							// name of Wire, Wire1, etc in use
 
@@ -179,7 +181,7 @@ class Systronix_PCA9557
 		uint8_t		base_get(void);
 		uint8_t 	self_test(uint8_t ignore_pins);		// TODO: write this!
 		uint8_t		pin_mobility_test (uint8_t ignore_pins_mask);
-		
+
 		uint8_t		pin_pulse (uint8_t pin_mask, boolean);
 		uint8_t		pin_drive (uint8_t pin_mask, boolean);
 

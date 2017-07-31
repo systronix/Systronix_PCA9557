@@ -640,6 +640,8 @@ uint8_t Systronix_PCA9557::pin_mobility_test (uint8_t ignore_pins_mask)
 		register_read(PCA9557_INP_PORT_REG, &read);				// read the 9557's i/o pins
 		if ((read | ignore_pins_mask) != write_val)				// what we read should be the same as what we wrote
 			{
+			pins_test_wr = write_val;
+			pins_test_rd = (read | ignore_pins_mask);
 			Serial.printf ("pin mobility test: expected: 0x%.2X; got: 0x%.2X\n", write_val, read);
 			return FAIL;
 			}
