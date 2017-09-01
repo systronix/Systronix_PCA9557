@@ -243,7 +243,8 @@ void loop(void)
 		coreJ2.control_write(i);
 		Serial.print("At reg 0x");
 		Serial.print(i, HEX);
-		read1 = coreJ2.default_read();
+//		read1 = coreJ2.default_read();
+		coreJ2.default_read(&read1);
 		Serial.print(" rd 0x");
 		Serial.println(read1, HEX);
 	}
@@ -251,11 +252,13 @@ void loop(void)
 	Serial.print("OUTMASK=0x");
 	Serial.println(OUTMASK, HEX);
 	
-	read1 = coreJ2.output_read();
+//	read1 = coreJ2.output_read();
+	coreJ2.register_read(PCA9557_OUT_PORT_REG, &read1);
 	Serial.print("Output read=0x");
 	Serial.println(read1, HEX);
 	
-	read1 = coreJ2.input_read();
+//	read1 = coreJ2.input_read();
+	coreJ2.register_read(PCA9557_INP_PORT_REG, &read1);
 	Serial.print("Input=0x");
 	Serial.println(read1, HEX);
 	
