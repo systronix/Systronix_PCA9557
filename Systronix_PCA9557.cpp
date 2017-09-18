@@ -635,7 +635,7 @@ uint8_t Systronix_PCA9557::pin_mobility_test (uint8_t ignore_pins_mask)
 	init (~ignore_pins_mask, 0, 0);								// set proper test configuration
 	for (uint8_t i=0; i<25; i++, write >>=1)					// initial write plus 24 shifts leaves with all bits set
 		{
-		write_val = (uint8_t)(write | ignore_pins_mask);		// low 8 bits; force bit 4 to be set
+		write_val = (uint8_t)(write | ignore_pins_mask);		// low 8 bits
 		register_write (PCA9557_OUT_PORT_REG, write_val);		// write test value to the output register
 		register_read(PCA9557_INP_PORT_REG, &read);				// read the 9557's i/o pins
 		if ((read | ignore_pins_mask) != write_val)				// what we read should be the same as what we wrote
