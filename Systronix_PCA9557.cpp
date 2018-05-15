@@ -20,7 +20,7 @@ Compiler has major whines if called as shown in the online Wire reference.
  
 /****************************************************************************
 	DEVICE I2C BASE ADDRESS
-	
+
  There are three address bits for 8 addresses
  Looking at the address bits in binary:
  0b0100 xxx[R/W]
@@ -90,7 +90,7 @@ uint8_t Systronix_PCA9557::setup(uint8_t base, i2c_t3 wire, char* name)
 	{
 	if ((PCA9557_BASE_MIN > base) || (PCA9557_BASE_MAX < base))
 		{
-		tally_transaction (SILLY_PROGRAMMER);
+		i2c_common.tally_transaction (SILLY_PROGRAMMER, &error);
 		return FAIL;
 		}
 
@@ -112,7 +112,7 @@ uint8_t Systronix_PCA9557::setup(uint8_t base, i2c_t3 wire, char* name)
 */
 /**************************************************************************/
 void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
-	{	
+	{
 	// @TODO add default read first thing to see if it is the control reg
 	// but even if it is, is it any use? How would we know what to expect?
 	_wire.begin(I2C_MASTER, 0x00, pins, I2C_PULLUP_EXT, rate);	// join I2C as master
@@ -126,12 +126,12 @@ void Systronix_PCA9557::begin(i2c_pins pins, i2c_rate rate)
 
 */
 void Systronix_PCA9557::begin(void)
-	{	
+	{
 	// @TODO add default read first thing to see if it is the control reg
 	// but even if it is, is it any use? How would we know what to expect?
 	_wire.begin();	// join I2C as master
 	_wire.setDefaultTimeout(200000); // 200ms
-	}	
+	}
 
 
 //---------------------------< B A S E _ G E T >--------------------------------------------------------------
@@ -178,9 +178,9 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t out_reg, uint8_t inv
 	ret_val = control_write(PCA9557_OUT_PORT_REG);		// if successful this means we got two ACKs from slave device
 	if (SUCCESS != ret_val)
 		{
-		Serial.printf("9557 lib init failed with %s (0x%.2X)\r\n", status_text[error.error_val], error.error_val);
+//		Serial.printf("9557 lib init failed with %s (0x%.2X)\r\n", status_text[error.error_val], error.error_val);
 		error.exists = false;			// only place error.exists is set false
-		return ABSENT;								
+		return ABSENT;
 		}
 
 	ret_val = register_write(PCA9557_OUT_PORT_REG, out_reg);		// init output reg first so that it is in correct state when config reg written
@@ -190,6 +190,7 @@ uint8_t Systronix_PCA9557::init(uint8_t config_reg, uint8_t out_reg, uint8_t inv
 	if (ret_val)									// if anything other than SUCCESS: FAIL > ABSENT;
 		return ret_val;								// should not see ABSENT here we just decided that the device exists
 
+	// the actual function(s) above update successful_count so don't duplicate that here
 	return SUCCESS;
 }
 
@@ -214,82 +215,6 @@ uint32_t Systronix_PCA9557::reset_bus_count_read(void)
 {
 	return _wire.resetBusCountRead();
 }
-
-
-//---------------------------< T A L L Y _ T R A N S A C T I O N >--------------------------------------------
-/**
-Here we tally errors.  This does not answer the what-to-do-in-the-event-of-these-errors question; it just
-counts them.
-
-TODO: we should decide if the correct thing to do when slave does not ack, or arbitration is lost, or
-timeout occurs, or auto reset fails (states 2, 5 and 4, 7 ??? state numbers may have changed since this
-comment originally added) is to declare these addresses as non-existent.
-
-We need to decide what to do when those conditions occur if we do not declare the device non-existent.
-When a device is declared non-existent, what do we do then? (this last is more a question for the
-application than this library).  The questions in this TODO apply equally to other i2c libraries that tally
-these errors.
-
-Don't set error.exists = false here! These errors are likely recoverable. bab & wsk 170612
-
-This is the only place we set error.error_val()
-
-TODO use i2c_t3 error or status enumeration here in the switch/case
-*/
-
-void Systronix_PCA9557::tally_transaction (uint8_t value)
-	{
-	if (value && (error.total_error_count < UINT64_MAX))
-		error.total_error_count++; 			// every time here incr total error count
-
-	error.error_val = value;
-
-	switch (value)
-		{
-		case SUCCESS:
-			if (error.successful_count < UINT64_MAX)
-				error.successful_count++;
-			break;
-		case 1:								// i2c_t3 and Wire: data too long from endTransmission() (rx/tx buffers are 259 bytes - slave addr + 2 cmd bytes + 256 data)
-			error.data_len_error_count++;
-			break;
-#if defined I2C_T3_H
-		case I2C_TIMEOUT:
-			error.timeout_count++;			// 4 from i2c_t3; timeout from call to status() (read)
-#else
-		case 4:
-			error.other_error_count++;		// i2c_t3 and Wire: from endTransmission() "other error"
-#endif
-			break;
-		case 2:								// i2c_t3 and Wire: from endTransmission()
-		case I2C_ADDR_NAK:					// 5 from i2c_t3
-			error.rcv_addr_nack_count++;
-			break;
-		case 3:								// i2c_t3 and Wire: from endTransmission()
-		case I2C_DATA_NAK:					// 6 from i2c_t3
-			error.rcv_data_nack_count++;
-			break;
-		case I2C_ARB_LOST:					// 7 from i2c_t3; arbitration lost from call to status() (read)
-			error.arbitration_lost_count++;
-			break;
-		case I2C_BUF_OVF:
-			error.buffer_overflow_count++;
-			break;
-		case I2C_SLAVE_TX:
-		case I2C_SLAVE_RX:
-			error.other_error_count++;		// 9 & 10 from i2c_t3; these are not errors, I think
-			break;
-		case WR_INCOMPLETE:					// 11; Wire.write failed to write all of the data to tx_buffer
-			error.incomplete_write_count++;
-			break;
-		case SILLY_PROGRAMMER:				// 12
-			error.silly_programmer_error++;
-			break;
-		default:
-			error.unknown_error_count++;
-			break;
-		}
-	}
 
 
 //---------------------------< C O N T R O L _ W R I T E >----------------------------------------------------
@@ -317,7 +242,7 @@ void Systronix_PCA9557::tally_transaction (uint8_t value)
 		low bit = that pin is output pin. 
 		That bit's output F/F out is actually driven to that pin.
 		POR state = all bits set (all are inputs)
-	
+
 	All this method does is set those register address bits 
 	in the control register. It does not then write to or 
 	read from the register which is now addressed.
@@ -335,26 +260,26 @@ uint8_t Systronix_PCA9557::control_write (uint8_t target_register)
 		return ABSENT;
 
 	if (target_register > PCA9557_CONFIG_REG)
-		tally_transaction(SILLY_PROGRAMMER);			// upper bits not fatal. We think. TODO: test this in 9557 example code.
+		i2c_common.tally_transaction(SILLY_PROGRAMMER, &error);			// upper bits not fatal. We think. TODO: test this in 9557 example code.
 
 	_wire.beginTransmission (_base);
 	ret_val = _wire.write (target_register);	// returns # of bytes written to i2c_t3 buffer
 	if (1 != ret_val)
 		{
-		tally_transaction (WR_INCOMPLETE);			// only here we make 0 an error value
+		i2c_common.tally_transaction (WR_INCOMPLETE, &error);			// only here we make 0 an error value
 		return FAIL;
 		}
 
 	ret_val = _wire.endTransmission ();			// endTransmission() returns 0 if successful
   	if (SUCCESS != ret_val)
 		{
-		tally_transaction (ret_val);					// increment the appropriate counter
+		i2c_common.tally_transaction (ret_val, &error);					// increment the appropriate counter
 		return FAIL;							// calling function decides what to do with the error
 		}
 
 	_control_reg = target_register;				// remember where the control register is pointing
 
-	tally_transaction (SUCCESS);
+	i2c_common.tally_transaction (SUCCESS, &error);
 	return SUCCESS;
 	}
 
@@ -378,24 +303,24 @@ uint8_t Systronix_PCA9557::register_write (uint8_t target_register, uint8_t data
 	uint8_t ret_val;
 
 	if (target_register > PCA9557_CONFIG_REG)
-		tally_transaction(SILLY_PROGRAMMER);					// upper bits not fatal. We think. TODO: test this in 9557 example code.
+		i2c_common.tally_transaction(SILLY_PROGRAMMER, &error);					// upper bits not fatal. We think. TODO: test this in 9557 example code.
 
 	if (!error.exists)								// exit immediately if device does not exist
-		return ABSENT;	
+		return ABSENT;
 
 	_wire.beginTransmission (_base);
 	ret_val = _wire.write (target_register);			// write control register; only 2 lsbs matter
 	ret_val += _wire.write (data);						// and write the data to the tx_buffer
 	if (2 != ret_val)
 		{
-		tally_transaction (WR_INCOMPLETE);					// only here 0 is error value since we expected to write more than 0 bytes
+		i2c_common.tally_transaction (WR_INCOMPLETE, &error);					// only here 0 is error value since we expected to write more than 0 bytes
 		return FAIL;
 		}
 
 	ret_val = _wire.endTransmission();
   	if (SUCCESS != ret_val)
 		{
-		tally_transaction (ret_val);							// increment the appropriate counter
+		i2c_common.tally_transaction (ret_val, &error);							// increment the appropriate counter
 		return FAIL;									// calling function decides what to do with the error
 		}
 
@@ -408,7 +333,7 @@ uint8_t Systronix_PCA9557::register_write (uint8_t target_register, uint8_t data
 	else if (PCA9557_CONFIG_REG == target_register)
 		_config_reg = data;
 
-	tally_transaction (SUCCESS);
+	i2c_common.tally_transaction (SUCCESS, &error);
 	return SUCCESS;
 	}
 
@@ -434,20 +359,20 @@ uint8_t Systronix_PCA9557::register_read (uint8_t target_register, uint8_t* data
 {
 
 	if (target_register > PCA9557_CONFIG_REG)
-		tally_transaction(SILLY_PROGRAMMER);						// upper bits not fatal. We think. TODO: test this in 9557 example code.
+		i2c_common.tally_transaction(SILLY_PROGRAMMER, &error);						// upper bits not fatal. We think. TODO: test this in 9557 example code.
 
 	if (!error.exists)						// exit immediately if device does not exist
 		return ABSENT;
 
 	if (control_write (target_register))		// put address of target_register into the control register
 		return FAIL;
-	
+
 	if (default_read (data_ptr))				// read the target_register
 		return FAIL;
 
 	// the actual functions above update successful_count so don't duplicate that here
 	return SUCCESS;
-}	
+}
 
 
 //---------------------------< D E F A U L T _ R E A D >------------------------------------------------------
@@ -473,7 +398,7 @@ uint8_t Systronix_PCA9557::default_read (uint8_t* data_ptr)
 	if (1 != _wire.requestFrom (_base, 1, I2C_STOP))
 		{
 		ret_val = _wire.status();						// to get error value
-		tally_transaction (ret_val);					// increment the appropriate counter
+		i2c_common.tally_transaction (ret_val, &error);					// increment the appropriate counter
 		return FAIL;
 		}
 
@@ -488,7 +413,7 @@ uint8_t Systronix_PCA9557::default_read (uint8_t* data_ptr)
 	else if (PCA9557_CONFIG_REG == _control_reg)
 		_config_reg = *data_ptr;
 
-	tally_transaction (SUCCESS);
+	i2c_common.tally_transaction (SUCCESS, &error);
 	return SUCCESS;
 	}
 
@@ -526,14 +451,14 @@ uint8_t Systronix_PCA9557::default_read (uint8_t* data_ptr)
 uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 	{
 	uint8_t	out_val = _out_reg;							// take a copy in case one or both writes fail
-	
+
 	if (!error.exists)								// exit immediately if device does not exist
 		return ABSENT;
 
 	if (idle_high)
 		out_val &= ~(pin_mask);							// clear outputs to be pulsed low
 	else
-		out_val |= (pin_mask);							// set outputs to be pulsed	high	
+		out_val |= (pin_mask);							// set outputs to be pulsed	high
 
 	if (register_write (PCA9557_OUT_PORT_REG, out_val))	// pulse outputs to non-idle state
 		return FAIL;
@@ -541,11 +466,12 @@ uint8_t Systronix_PCA9557::pin_pulse (uint8_t pin_mask, boolean idle_high)
 	if (idle_high)
 		out_val |= (pin_mask);							// set outputs to be idled high
 	else
-		out_val &= ~(pin_mask);							// clr outputs to be idled low		
-	
+		out_val &= ~(pin_mask);							// clr outputs to be idled low
+
 	if (register_write(PCA9557_OUT_PORT_REG, out_val))	// restore outputs to idle state
 		return FAIL;
-	
+
+	// the actual function(s) above update successful_count so don't duplicate that here
 	return SUCCESS;
 	}
 
@@ -588,6 +514,7 @@ uint8_t Systronix_PCA9557::pin_drive (uint8_t pin_mask, boolean high)
 	if (register_write (PCA9557_OUT_PORT_REG, out_val))		// drive output(s) to new state
 		return FAIL;
 
+	// the actual function(s) above update successful_count so don't duplicate that here
 	return SUCCESS;
 	}
 

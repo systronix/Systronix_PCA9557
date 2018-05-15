@@ -10,7 +10,6 @@
  */
  
 
-// include this only one time
 #ifndef PCA9557_H_
 #define PCA9557_H_
 
@@ -18,26 +17,16 @@
 //---------------------------< I N C L U D E S >--------------------------------------------------------------
 
 #include <Arduino.h>
-
-// Include the lowest level I2C library
-#if defined (__MK20DX256__) || defined (__MK20DX128__) 	// Teensy 3.1 or 3.2 || Teensy 3.0
-#include <i2c_t3.h>		
-#else
-#include <Wire.h>	// for AVR I2C library
-#endif
+#include <Systronix_i2c_common.h>
 
 
 //---------------------------< D E F I N E S >----------------------------------------------------------------
-
-#define		SUCCESS				0
-#define		FAIL				(~SUCCESS)
-#define		ABSENT				0xFD
+//
+//
+//
 
 #define		PCA9557_BASE_MIN 	0x18		// 7-bit address not including R/W bit
 #define		PCA9557_BASE_MAX 	0x1F		// 7-bit address not including R/W bit
-
-#define		WR_INCOMPLETE		11
-#define		SILLY_PROGRAMMER	12
 
 
 //----------< C O M M A N D   R E G I S T E R >----------
@@ -84,8 +73,6 @@ class Systronix_PCA9557
 		char* 		_wire_name = (char*)"empty";
 		i2c_t3		_wire = Wire;						// why is this assigned value = Wire? [bab]
 		
-		void		tally_transaction (uint8_t);
-   
 	public:
 
 		/**
@@ -102,7 +89,7 @@ class Systronix_PCA9557
 		we can't tell the difference between SUCCESS and I2C_WAITING
 		Since requestFrom is blocking, only "I2C message is over" status can occur.
 		In Writing, with endTransmission, it is blocking, so only end of message errors can exist.
-		*/
+		*//* THIS IS NOT USED. ANY REASON TO KEEP IT?
 #if defined I2C_T3_H 		
 		const char * const status_text[13] =
 		{
@@ -132,33 +119,15 @@ class Systronix_PCA9557
 			"Other error"
 		};		
 #endif
-
+ */
 		/** error stucture
 		Note that this can be written by a library user, so it could be cleared if desired as part of 
 		some error recovery or logging operation. It could also be inadvertenly erased...
 
 		successful_count overflowed at 258.5 hours. Making this a 64-bit unsigned (long long) allows
-		for 2**32 times as many hours. So not likely to ever wrap wrap.
+		for 2**32 times as many hours. So not likely to ever wrap.
 		*/
-		struct
-			{
-			boolean		exists;							// set false after an unsuccessful i2c transaction
-			uint8_t		error_val;						// the most recent error value, not just SUCCESS or FAIL
-			uint32_t	incomplete_write_count;			// Wire.write failed to write all of the data to tx_buffer
-			uint32_t	data_len_error_count;			// data too long
-			uint32_t	timeout_count;					// slave response took too long
-			uint32_t	rcv_addr_nack_count;			// slave did not ack address
-			uint32_t	rcv_data_nack_count;			// slave did not ack data
-			uint32_t	arbitration_lost_count;
-			uint32_t	buffer_overflow_count;
-			uint32_t	other_error_count;				// from endTransmission there is "other" error
-			uint32_t	unknown_error_count;
-			uint32_t	data_value_error_count;			// I2C message OK but value read was wrong; how can this be?
-			uint32_t	silly_programmer_error;			// I2C address to big or something else that "should never happen"
-			uint64_t	total_error_count;				// quick check to see if any have happened
-			uint64_t	successful_count;				// successful access cycle
-			} error;
-
+		error_t		error;								// error struct typdefed in Systronix_i2c_common.h
 
 		uint8_t		pins_test_wr;						// when pin mobility test fails; the byte written goes here
 		uint8_t		pins_test_rd;						// and the read-back value goes here
