@@ -551,6 +551,8 @@ uint8_t Systronix_PCA9557::self_test(uint8_t ignore_pins)
 // A simple test to see that we can wiggle the PCA9557 port pins and that the pins aren't tied together or
 // shorted to ground or a supply rail.
 //
+// This test sets the input invert register to 0x00 so that reads of the I/O pins are not improperly inverted.
+//
 
 
 uint8_t Systronix_PCA9557::pin_mobility_test (uint8_t ignore_pins_mask)
@@ -558,6 +560,8 @@ uint8_t Systronix_PCA9557::pin_mobility_test (uint8_t ignore_pins_mask)
 	int32_t write = 0xFEFF0100;									// walking 1 followed by walking zero (24 right shifts)
 	uint8_t	write_val;
 	uint8_t	read = 0;
+
+	register_write (PCA9557_INP_INVERT_REG, 0);					// ensure that the invert register does not invert the input bits during the test
 
 	init (~ignore_pins_mask, 0, 0);								// set proper test configuration
 	for (uint8_t i=0; i<25; i++, write >>=1)					// initial write plus 24 shifts leaves with all bits set
